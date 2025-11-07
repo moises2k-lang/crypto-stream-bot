@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Link2, CheckCircle2, Send } from "lucide-react";
@@ -46,23 +44,6 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             </TabsList>
             
             <TabsContent value="binance" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="binance-key" className="text-foreground">API Key</Label>
-                <Input 
-                  id="binance-key" 
-                  placeholder="Tu Binance API Key"
-                  className="bg-background border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="binance-secret" className="text-foreground">API Secret</Label>
-                <Input 
-                  id="binance-secret" 
-                  type="password"
-                  placeholder="Tu Binance API Secret"
-                  className="bg-background border-border"
-                />
-              </div>
               <Button 
                 onClick={() => handleConnect("Binance")}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -73,23 +54,6 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             </TabsContent>
             
             <TabsContent value="bybit" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="bybit-key" className="text-foreground">API Key</Label>
-                <Input 
-                  id="bybit-key" 
-                  placeholder="Tu Bybit API Key"
-                  className="bg-background border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bybit-secret" className="text-foreground">API Secret</Label>
-                <Input 
-                  id="bybit-secret" 
-                  type="password"
-                  placeholder="Tu Bybit API Secret"
-                  className="bg-background border-border"
-                />
-              </div>
               <Button 
                 onClick={() => handleConnect("Bybit")}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -109,23 +73,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             Conecta tu grupo de señales
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="telegram-token" className="text-foreground">Bot Token</Label>
-            <Input 
-              id="telegram-token" 
-              placeholder="Token de tu bot de Telegram"
-              className="bg-background border-border"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="telegram-chat" className="text-foreground">Chat ID</Label>
-            <Input 
-              id="telegram-chat" 
-              placeholder="ID del grupo de señales"
-              className="bg-background border-border"
-            />
-          </div>
+        <CardContent>
           <Button 
             onClick={() => toast.success("Conectado a Telegram")}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"

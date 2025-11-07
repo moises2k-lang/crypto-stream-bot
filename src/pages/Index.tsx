@@ -4,6 +4,7 @@ import { StatsGrid } from "@/components/StatsGrid";
 import { ExchangeConnections } from "@/components/ExchangeConnections";
 import { SignalsPanel } from "@/components/SignalsPanel";
 import { TradesHistory } from "@/components/TradesHistory";
+import { MarketCharts } from "@/components/MarketCharts";
 
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -17,6 +18,7 @@ const Index = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            <MarketCharts />
             <SignalsPanel />
             <TradesHistory />
           </div>

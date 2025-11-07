@@ -17,16 +17,6 @@ const signals = [
     time: "10:23 AM"
   },
   {
-    id: 2,
-    pair: "ETH/USDT",
-    type: "SHORT",
-    entry: "2,280",
-    target: "2,150",
-    stop: "2,350",
-    status: "pending",
-    time: "10:18 AM"
-  },
-  {
     id: 3,
     pair: "SOL/USDT",
     type: "LONG",
@@ -71,9 +61,9 @@ export const SignalsPanel = () => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-foreground">Señales Activas</CardTitle>
+            <CardTitle className="text-foreground">Operaciones Activas</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Señales recibidas de tu grupo de Telegram
+              Posiciones abiertas actualmente
             </CardDescription>
           </div>
           <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
@@ -134,27 +124,15 @@ export const SignalsPanel = () => {
               </div>
 
               <div className="flex gap-2">
-                {signal.status === 'pending' && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => handleExecute(signal)}
-                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    <Play className="h-3 w-3 mr-1" />
-                    Ejecutar
-                  </Button>
-                )}
-                {signal.status === 'active' && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => toast.info("Cerrando posición...")}
-                    className="flex-1 border-danger/50 text-danger hover:bg-danger/10"
-                  >
-                    <Square className="h-3 w-3 mr-1" />
-                    Cerrar
-                  </Button>
-                )}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => toast.info("Cerrando posición...")}
+                  className="flex-1 border-danger/50 text-danger hover:bg-danger/10"
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  Cerrar
+                </Button>
                 <Button 
                   size="sm" 
                   variant="outline"
