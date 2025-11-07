@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, TrendingUp, TrendingDown } from "lucide-react";
+import { Play, Square, TrendingUp, TrendingDown, Send } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const signals = [
   {
@@ -40,6 +41,29 @@ const signals = [
 export const SignalsPanel = () => {
   const handleExecute = (signal: any) => {
     toast.success(`Ejecutando señal ${signal.type} en ${signal.pair}`);
+  };
+
+  const handleSendToTelegram = async (signal: any) => {
+    try {
+      toast.loading('Enviando señal a Telegram...');
+      
+      const { data, error } = await supabase.functions.invoke('send-telegram-signal', {
+        body: {
+          pair: signal.pair,
+          type: signal.type,
+          entry: signal.entry,
+          target: signal.target,
+          stop: signal.stop,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success('Señal enviada a Telegram exitosamente');
+    } catch (error) {
+      console.error('Error sending to Telegram:', error);
+      toast.error('Error al enviar señal a Telegram');
+    }
   };
 
   return (
@@ -131,6 +155,15 @@ export const SignalsPanel = () => {
                     Cerrar
                   </Button>
                 )}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => handleSendToTelegram(signal)}
+                  className="border-primary/50 text-primary hover:bg-primary/10"
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  Telegram
+                </Button>
               </div>
             </div>
           ))}
