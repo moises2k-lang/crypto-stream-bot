@@ -41,7 +41,7 @@ serve(async (req) => {
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
-      .single();
+      .maybeSingle();
 
     if (!roleData) {
       return new Response(
@@ -51,6 +51,8 @@ serve(async (req) => {
     }
 
     const { userId, action, data } = await req.json();
+
+    console.log('Received action:', action, 'for userId:', userId, 'with data:', data);
 
     if (!userId || !action) {
       return new Response(
