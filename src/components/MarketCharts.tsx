@@ -12,7 +12,7 @@ interface MarketData {
   color: string;
 }
 
-const COIN_IDS = ['monero', 'bitcoin', 'ethereum', 'solana', 'binancecoin'];
+const SYMBOLS = ['XMRUSDT', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
 const MARKET_NAMES = ['XMR/USDT', 'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
 const COLORS = ['hsl(var(--chart-3))', 'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -23,68 +23,64 @@ export const MarketCharts = () => {
 
   const fetchMarketData = async () => {
     try {
-      // Fetch current prices and 24h change
-      const priceResponse = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${COIN_IDS.join(',')}&vs_currencies=usd&include_24hr_change=true`
-      );
-      
-      if (!priceResponse.ok) {
-        if (priceResponse.status === 429) {
-          throw new Error('Demasiadas peticiones. Espera un momento antes de actualizar.');
-        }
-        throw new Error(`HTTP error! status: ${priceResponse.status}`);
-      }
-      
-      const priceData = await priceResponse.json();
-
-      // Fetch chart data with delay between requests to avoid rate limiting
-      const chartDataArray = [];
-      for (let i = 0; i < COIN_IDS.length; i++) {
+      // Fetch all market data from Binance API
+      const marketPromises = SYMBOLS.map(async (symbol) => {
         try {
-          const response = await fetch(
-            `https://api.coingecko.com/api/v3/coins/${COIN_IDS[i]}/market_chart?vs_currency=usd&days=1`
+          // Get 24h ticker data (includes price and 24h change)
+          const tickerResponse = await fetch(
+            `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
           );
           
-          if (response.ok) {
-            const data = await response.json();
-            chartDataArray.push(data);
-          } else {
-            console.warn(`Failed to fetch chart for ${COIN_IDS[i]}`);
-            chartDataArray.push({ prices: [] });
+          if (!tickerResponse.ok) {
+            throw new Error(`Failed to fetch ticker for ${symbol}`);
           }
           
-          // Add 1 second delay between requests to respect rate limits
-          if (i < COIN_IDS.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          const tickerData = await tickerResponse.json();
+          
+          // Get kline/candlestick data for chart (1 hour intervals, last 24 hours)
+          const klineResponse = await fetch(
+            `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`
+          );
+          
+          if (!klineResponse.ok) {
+            throw new Error(`Failed to fetch klines for ${symbol}`);
           }
-        } catch (err) {
-          console.error(`Error fetching chart for ${COIN_IDS[i]}:`, err);
-          chartDataArray.push({ prices: [] });
-        }
-      }
-
-      const newMarkets: MarketData[] = COIN_IDS.map((coinId, index) => {
-        const price = priceData[coinId]?.usd || 0;
-        const change = priceData[coinId]?.usd_24h_change || 0;
-        const chartData = chartDataArray[index]?.prices || [];
-
-        const formattedData = chartData.map((point: [number, number]) => {
-          const date = new Date(point[0]);
+          
+          const klineData = await klineResponse.json();
+          
           return {
-            time: `${date.getHours()}:00`,
-            price: point[1],
+            symbol,
+            price: parseFloat(tickerData.lastPrice),
+            change: parseFloat(tickerData.priceChangePercent),
+            chartData: klineData.map((candle: any) => ({
+              time: new Date(candle[0]).getHours() + ':00',
+              price: parseFloat(candle[4]), // Close price
+            })),
           };
-        });
-
-        return {
-          name: MARKET_NAMES[index],
-          coinId,
-          price: price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          change: `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`,
-          data: formattedData,
-          color: COLORS[index],
-        };
+        } catch (error) {
+          console.error(`Error fetching data for ${symbol}:`, error);
+          return {
+            symbol,
+            price: 0,
+            change: 0,
+            chartData: [],
+          };
+        }
       });
+
+      const marketDataArray = await Promise.all(marketPromises);
+
+      const newMarkets: MarketData[] = marketDataArray.map((data, index) => ({
+        name: MARKET_NAMES[index],
+        coinId: SYMBOLS[index],
+        price: data.price.toLocaleString('en-US', { 
+          minimumFractionDigits: 2, 
+          maximumFractionDigits: data.price < 1 ? 6 : 2 
+        }),
+        change: `${data.change >= 0 ? '+' : ''}${data.change.toFixed(2)}%`,
+        data: data.chartData,
+        color: COLORS[index],
+      }));
 
       setMarkets(newMarkets);
       setIsLoading(false);
@@ -92,7 +88,7 @@ export const MarketCharts = () => {
       console.error('Error fetching market data:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "No se pudieron obtener datos de mercado. Por favor, intenta de nuevo más tarde.",
+        description: "No se pudieron obtener datos de mercado. Por favor, intenta de nuevo más tarde.",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -102,8 +98,8 @@ export const MarketCharts = () => {
   useEffect(() => {
     fetchMarketData();
     
-    // Update every 5 minutes to avoid rate limiting
-    const interval = setInterval(fetchMarketData, 300000);
+    // Update every 30 seconds with Binance API (no strict rate limits)
+    const interval = setInterval(fetchMarketData, 30000);
     
     return () => clearInterval(interval);
   }, []);
