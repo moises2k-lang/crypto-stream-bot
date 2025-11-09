@@ -26,11 +26,11 @@ export const MarketCharts = () => {
       // Fetch all market data from Binance API
       const marketPromises = SYMBOLS.map(async (symbol) => {
         try {
-          // Use Bybit API for XMR, Binance for others
+          // Use KuCoin API for XMR, Binance for others
           if (symbol === 'XMRUSDT') {
-            // Get 24h ticker data from Bybit
+            // Get 24h ticker data from KuCoin
             const tickerResponse = await fetch(
-              `https://api.bybit.com/v5/market/tickers?category=spot&symbol=${symbol}`
+              `https://api.kucoin.com/api/v1/market/stats?symbol=XMR-USDT`
             );
             
             if (!tickerResponse.ok) {
@@ -38,11 +38,11 @@ export const MarketCharts = () => {
             }
             
             const tickerData = await tickerResponse.json();
-            const ticker = tickerData.result.list[0];
+            const ticker = tickerData.data;
             
-            // Get kline data from Bybit (60 = 1 hour intervals, last 24 hours)
+            // Get kline data from KuCoin (1hour intervals, last 24 hours)
             const klineResponse = await fetch(
-              `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=60&limit=24`
+              `https://api.kucoin.com/api/v1/market/candles?type=1hour&symbol=XMR-USDT&startAt=${Math.floor(Date.now() / 1000) - 86400}&endAt=${Math.floor(Date.now() / 1000)}`
             );
             
             if (!klineResponse.ok) {
@@ -53,10 +53,10 @@ export const MarketCharts = () => {
             
             return {
               symbol,
-              price: parseFloat(ticker.lastPrice),
-              change: parseFloat(ticker.price24hPcnt) * 100, // Bybit returns decimal, convert to percentage
-              chartData: klineData.result.list.reverse().map((candle: any) => ({
-                time: new Date(parseInt(candle[0])).getHours() + ':00',
+              price: parseFloat(ticker.last),
+              change: parseFloat(ticker.changeRate) * 100, // KuCoin returns decimal, convert to percentage
+              chartData: klineData.data.reverse().map((candle: any) => ({
+                time: new Date(parseInt(candle[0]) * 1000).getHours() + ':00',
                 price: parseFloat(candle[4]), // Close price
               })),
             };
