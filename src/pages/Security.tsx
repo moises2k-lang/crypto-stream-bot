@@ -34,6 +34,7 @@ const Security = () => {
   const [mfaCode, setMfaCode] = useState("");
   const [setupLoading, setSetupLoading] = useState(false);
   const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
+  const [pendingFactorId, setPendingFactorId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -70,8 +71,9 @@ const Security = () => {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) throw error;
 
-      const hasTOTP = data?.totp?.length > 0;
-      setMfaEnabled(hasTOTP);
+      // Check for verified TOTP factors only
+      const verifiedTOTP = data?.totp?.filter(f => f.status === 'verified') || [];
+      setMfaEnabled(verifiedTOTP.length > 0);
     } catch (error: any) {
       console.error('Error checking MFA status:', error);
       toast.error("Error al verificar estado de 2FA");
@@ -91,6 +93,7 @@ const Security = () => {
 
       setMfaQRCode(data.totp.qr_code);
       setMfaSecret(data.totp.secret);
+      setPendingFactorId(data.id); // Save the factor ID
       setShowMFASetup(true);
       toast.success("Escanea el código QR con Google Authenticator");
     } catch (error: any) {
@@ -107,19 +110,20 @@ const Security = () => {
       return;
     }
 
+    if (!pendingFactorId) {
+      toast.error("No hay factor pendiente de verificación");
+      return;
+    }
+
     setSetupLoading(true);
     try {
-      const factors = await supabase.auth.mfa.listFactors();
-      if (factors.error) throw factors.error;
-
-      const totpFactor = factors.data?.totp?.[0];
-      if (!totpFactor) throw new Error("Factor TOTP no encontrado");
-
-      const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id });
+      // Challenge the specific factor that was just enrolled
+      const challenge = await supabase.auth.mfa.challenge({ factorId: pendingFactorId });
       if (challenge.error) throw challenge.error;
 
+      // Verify with the code from Google Authenticator
       const verify = await supabase.auth.mfa.verify({
-        factorId: totpFactor.id,
+        factorId: pendingFactorId,
         challengeId: challenge.data.id,
         code: mfaCode,
       });
@@ -131,10 +135,11 @@ const Security = () => {
       setMfaCode("");
       setMfaQRCode("");
       setMfaSecret("");
+      setPendingFactorId(null);
       checkMFAStatus();
     } catch (error: any) {
       console.error('Error verifying MFA:', error);
-      toast.error(error.message || "Código incorrecto");
+      toast.error(error.message || "Código incorrecto. Verifica que el código de Google Authenticator sea el actual.");
     } finally {
       setSetupLoading(false);
     }
@@ -150,14 +155,16 @@ const Security = () => {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) throw error;
 
-      const totpFactor = data?.totp?.[0];
-      if (!totpFactor) throw new Error("No hay factor TOTP para desactivar");
+      const verifiedFactors = data?.totp?.filter(f => f.status === 'verified') || [];
+      
+      // Unenroll all verified factors
+      for (const factor of verifiedFactors) {
+        const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+          factorId: factor.id,
+        });
 
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-        factorId: totpFactor.id,
-      });
-
-      if (unenrollError) throw unenrollError;
+        if (unenrollError) throw unenrollError;
+      }
 
       toast.success("2FA desactivado correctamente");
       checkMFAStatus();

@@ -40,6 +40,23 @@ serve(async (req) => {
     // Parse user agent to extract device info
     const deviceInfo = parseUserAgent(userAgent);
 
+    // Get geolocation data from IP address
+    let geoData = { country: null, city: null };
+    if (ipAddress && ipAddress !== 'Client IP') {
+      try {
+        const geoResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
+        if (geoResponse.ok) {
+          const geo = await geoResponse.json();
+          geoData = {
+            country: geo.country_name || null,
+            city: geo.city || null
+          };
+        }
+      } catch (geoError) {
+        console.error('Error fetching geolocation:', geoError);
+      }
+    }
+
     // Log the login activity
     const { error: insertError } = await supabaseAdmin
       .from('login_history')
@@ -50,6 +67,8 @@ serve(async (req) => {
         device_info: deviceInfo.device,
         browser: deviceInfo.browser,
         os: deviceInfo.os,
+        country: geoData.country,
+        city: geoData.city,
         success: true
       });
 

@@ -173,10 +173,20 @@ export const Auth = () => {
 
         // Log login activity
         try {
+          // Get client IP from a service
+          let clientIP = 'Unknown';
+          try {
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            clientIP = ipData.ip;
+          } catch (ipError) {
+            console.error('Error getting IP:', ipError);
+          }
+
           await supabase.functions.invoke('log-login-activity', {
             body: {
               userAgent: navigator.userAgent,
-              ipAddress: 'Client IP' // IP will be captured server-side in production
+              ipAddress: clientIP
             }
           });
         } catch (logError) {
