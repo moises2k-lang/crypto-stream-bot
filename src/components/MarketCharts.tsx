@@ -29,18 +29,39 @@ export const MarketCharts = () => {
       );
       
       if (!priceResponse.ok) {
+        if (priceResponse.status === 429) {
+          throw new Error('Demasiadas peticiones. Espera un momento antes de actualizar.');
+        }
         throw new Error(`HTTP error! status: ${priceResponse.status}`);
       }
       
       const priceData = await priceResponse.json();
 
-      // Fetch 24h chart data for each coin (without interval parameter to avoid 401 error)
-      const chartPromises = COIN_IDS.map(coinId =>
-        fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1`)
-          .then(res => res.json())
-      );
-
-      const chartDataArray = await Promise.all(chartPromises);
+      // Fetch chart data with delay between requests to avoid rate limiting
+      const chartDataArray = [];
+      for (let i = 0; i < COIN_IDS.length; i++) {
+        try {
+          const response = await fetch(
+            `https://api.coingecko.com/api/v3/coins/${COIN_IDS[i]}/market_chart?vs_currency=usd&days=1`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            chartDataArray.push(data);
+          } else {
+            console.warn(`Failed to fetch chart for ${COIN_IDS[i]}`);
+            chartDataArray.push({ prices: [] });
+          }
+          
+          // Add 1 second delay between requests to respect rate limits
+          if (i < COIN_IDS.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (err) {
+          console.error(`Error fetching chart for ${COIN_IDS[i]}:`, err);
+          chartDataArray.push({ prices: [] });
+        }
+      }
 
       const newMarkets: MarketData[] = COIN_IDS.map((coinId, index) => {
         const price = priceData[coinId]?.usd || 0;
@@ -71,7 +92,7 @@ export const MarketCharts = () => {
       console.error('Error fetching market data:', error);
       toast({
         title: "Error",
-        description: "No se pudieron obtener datos de mercado en tiempo real. Por favor, intenta de nuevo más tarde.",
+        description: error instanceof Error ? error.message : "No se pudieron obtener datos de mercado. Por favor, intenta de nuevo más tarde.",
         variant: "destructive",
       });
       setIsLoading(false);
