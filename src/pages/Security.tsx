@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { Shield, ShieldCheck, QrCode, Key, Monitor, Smartphone, Tablet, MapPin, Clock } from "lucide-react";
 import { format } from "date-fns";
@@ -196,205 +197,218 @@ const Security = () => {
               <CardTitle>Configuración de Seguridad</CardTitle>
             </div>
             <CardDescription>
-              Gestiona la autenticación de dos factores y la seguridad de tu cuenta
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* MFA Status Section */}
-            <div className="border rounded-lg p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-3 rounded-lg ${mfaEnabled ? 'bg-success/10' : 'bg-muted'}`}>
-                    {mfaEnabled ? (
-                      <ShieldCheck className="h-6 w-6 text-success" />
-                    ) : (
-                      <Shield className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">Autenticación de Dos Factores (2FA)</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Agrega una capa extra de seguridad a tu cuenta
-                    </p>
-                  </div>
-                </div>
-                <Badge variant={mfaEnabled ? "default" : "secondary"}>
-                  {mfaEnabled ? "Activado" : "Desactivado"}
-                </Badge>
-              </div>
-
-              {!mfaEnabled && !showMFASetup && (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    La autenticación de dos factores agrega una capa adicional de seguridad a tu cuenta. 
-                    Necesitarás ingresar un código de Google Authenticator además de tu contraseña.
-                  </p>
-                  <Button 
-                    onClick={handleEnrollMFA} 
-                    disabled={setupLoading}
-                    className="w-full sm:w-auto"
-                  >
-                    <QrCode className="h-4 w-4 mr-2" />
-                    Activar 2FA
-                  </Button>
-                </div>
-              )}
-
-              {!mfaEnabled && showMFASetup && (
-                <div className="space-y-4">
-                  <div className="bg-background border rounded-lg p-4">
-                    <h4 className="font-medium mb-2">1. Escanea el código QR</h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Abre Google Authenticator y escanea este código QR
-                    </p>
-                    {mfaQRCode && (
-                      <div className="flex justify-center bg-white p-4 rounded-lg">
-                        <img src={mfaQRCode} alt="QR Code" className="w-48 h-48" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-background border rounded-lg p-4">
-                    <h4 className="font-medium mb-2">2. Código secreto (alternativo)</h4>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Si no puedes escanear el QR, ingresa este código manualmente:
-                    </p>
-                    <div className="bg-muted p-3 rounded font-mono text-sm break-all">
-                      {mfaSecret}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="mfaCode">3. Ingresa el código de verificación</Label>
-                    <div className="flex gap-2 mt-2">
-                      <Input
-                        id="mfaCode"
-                        type="text"
-                        placeholder="000000"
-                        value={mfaCode}
-                        onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        maxLength={6}
-                        className="font-mono text-center text-lg tracking-widest"
-                      />
-                      <Button 
-                        onClick={handleVerifyMFASetup} 
-                        disabled={setupLoading || mfaCode.length !== 6}
-                      >
-                        Verificar
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowMFASetup(false);
-                      setMfaCode("");
-                      setMfaQRCode("");
-                      setMfaSecret("");
-                    }}
-                    className="w-full sm:w-auto"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              )}
-
-              {mfaEnabled && (
-                <div className="space-y-4">
-                  <div className="bg-success/10 border border-success/20 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-success mb-2">
-                      <ShieldCheck className="h-5 w-5" />
-                      <span className="font-medium">2FA está activo</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Tu cuenta está protegida con autenticación de dos factores. 
-                      Se te pedirá un código de Google Authenticator cada vez que inicies sesión desde un nuevo dispositivo.
-                    </p>
-                  </div>
-                  <Button 
-                    variant="destructive" 
-                    onClick={handleDisableMFA}
-                    disabled={setupLoading}
-                  >
-                    <Key className="h-4 w-4 mr-2" />
-                    Desactivar 2FA
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Login History Section */}
-        <Card className="mt-6">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Clock className="h-6 w-6 text-primary" />
-              <CardTitle>Historial de Actividad</CardTitle>
-            </div>
-            <CardDescription>
-              Revisa los últimos inicios de sesión en tu cuenta
+              Gestiona la autenticación de dos factores y el historial de actividad de tu cuenta
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loginHistory.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No hay historial de actividad reciente</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Dispositivo</TableHead>
-                    <TableHead>Navegador</TableHead>
-                    <TableHead>Sistema</TableHead>
-                    <TableHead>Ubicación</TableHead>
-                    <TableHead>Fecha y Hora</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loginHistory.map((entry) => {
-                    const DeviceIcon = 
-                      entry.device_info === 'Mobile' ? Smartphone :
-                      entry.device_info === 'Tablet' ? Tablet :
-                      Monitor;
+            <Accordion type="multiple" defaultValue={["2fa", "history"]} className="w-full">
+              {/* 2FA Section */}
+              <AccordionItem value="2fa">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className={`p-2 rounded-lg ${mfaEnabled ? 'bg-success/10' : 'bg-muted'}`}>
+                      {mfaEnabled ? (
+                        <ShieldCheck className="h-5 w-5 text-success" />
+                      ) : (
+                        <Shield className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold">Autenticación de Dos Factores (2FA)</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Protege tu cuenta con un código adicional
+                      </p>
+                    </div>
+                    <Badge variant={mfaEnabled ? "default" : "secondary"} className="ml-auto mr-4">
+                      {mfaEnabled ? "Activado" : "Desactivado"}
+                    </Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="pt-4 space-y-4">
+                    {!mfaEnabled && !showMFASetup && (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          La autenticación de dos factores agrega una capa adicional de seguridad a tu cuenta. 
+                          Necesitarás ingresar un código de Google Authenticator además de tu contraseña.
+                        </p>
+                        <Button 
+                          onClick={handleEnrollMFA} 
+                          disabled={setupLoading}
+                          className="w-full sm:w-auto"
+                        >
+                          <QrCode className="h-4 w-4 mr-2" />
+                          Activar 2FA
+                        </Button>
+                      </div>
+                    )}
 
-                    return (
-                      <TableRow key={entry.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <DeviceIcon className="h-4 w-4 text-muted-foreground" />
-                            <span>{entry.device_info || 'Desconocido'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{entry.browser || 'Desconocido'}</TableCell>
-                        <TableCell>{entry.os || 'Desconocido'}</TableCell>
-                        <TableCell>
-                          {entry.city && entry.country ? (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span>{entry.city}, {entry.country}</span>
+                    {!mfaEnabled && showMFASetup && (
+                      <div className="space-y-4">
+                        <div className="bg-background border rounded-lg p-4">
+                          <h4 className="font-medium mb-2">1. Escanea el código QR</h4>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Abre Google Authenticator y escanea este código QR
+                          </p>
+                          {mfaQRCode && (
+                            <div className="flex justify-center bg-white p-4 rounded-lg">
+                              <img src={mfaQRCode} alt="QR Code" className="w-48 h-48" />
                             </div>
-                          ) : entry.ip_address ? (
-                            <span className="text-muted-foreground text-sm">{entry.ip_address}</span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>{format(new Date(entry.login_at), "d 'de' MMMM, yyyy", { locale: es })}</div>
-                            <div className="text-muted-foreground">{format(new Date(entry.login_at), 'HH:mm:ss')}</div>
+                        </div>
+
+                        <div className="bg-background border rounded-lg p-4">
+                          <h4 className="font-medium mb-2">2. Código secreto (alternativo)</h4>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Si no puedes escanear el QR, ingresa este código manualmente:
+                          </p>
+                          <div className="bg-muted p-3 rounded font-mono text-sm break-all">
+                            {mfaSecret}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="mfaCode">3. Ingresa el código de verificación</Label>
+                          <div className="flex gap-2 mt-2">
+                            <Input
+                              id="mfaCode"
+                              type="text"
+                              placeholder="000000"
+                              value={mfaCode}
+                              onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              maxLength={6}
+                              className="font-mono text-center text-lg tracking-widest"
+                            />
+                            <Button 
+                              onClick={handleVerifyMFASetup} 
+                              disabled={setupLoading || mfaCode.length !== 6}
+                            >
+                              Verificar
+                            </Button>
+                          </div>
+                        </div>
+
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setShowMFASetup(false);
+                            setMfaCode("");
+                            setMfaQRCode("");
+                            setMfaSecret("");
+                          }}
+                          className="w-full sm:w-auto"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    )}
+
+                    {mfaEnabled && (
+                      <div className="space-y-4">
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+                          <div className="flex items-center gap-2 text-success mb-2">
+                            <ShieldCheck className="h-5 w-5" />
+                            <span className="font-medium">2FA está activo</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Tu cuenta está protegida con autenticación de dos factores. 
+                            Se te pedirá un código de Google Authenticator cada vez que inicies sesión desde un nuevo dispositivo.
+                          </p>
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleDisableMFA}
+                          disabled={setupLoading}
+                        >
+                          <Key className="h-4 w-4 mr-2" />
+                          Desactivar 2FA
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Login History Section */}
+              <AccordionItem value="history">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted">
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold">Historial de Actividad</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Revisa los últimos inicios de sesión
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="pt-4">
+                    {loginHistory.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>No hay historial de actividad reciente</p>
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Dispositivo</TableHead>
+                              <TableHead>Navegador</TableHead>
+                              <TableHead>Sistema</TableHead>
+                              <TableHead>Ubicación</TableHead>
+                              <TableHead>Fecha y Hora</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {loginHistory.map((entry) => {
+                              const DeviceIcon = 
+                                entry.device_info === 'Mobile' ? Smartphone :
+                                entry.device_info === 'Tablet' ? Tablet :
+                                Monitor;
+
+                              return (
+                                <TableRow key={entry.id}>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <DeviceIcon className="h-4 w-4 text-muted-foreground" />
+                                      <span>{entry.device_info || 'Desconocido'}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{entry.browser || 'Desconocido'}</TableCell>
+                                  <TableCell>{entry.os || 'Desconocido'}</TableCell>
+                                  <TableCell>
+                                    {entry.city && entry.country ? (
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                                        <span>{entry.city}, {entry.country}</span>
+                                      </div>
+                                    ) : entry.ip_address ? (
+                                      <span className="text-muted-foreground text-sm">{entry.ip_address}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="text-sm">
+                                      <div>{format(new Date(entry.login_at), "d 'de' MMMM, yyyy", { locale: es })}</div>
+                                      <div className="text-muted-foreground">{format(new Date(entry.login_at), 'HH:mm:ss')}</div>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       </main>
