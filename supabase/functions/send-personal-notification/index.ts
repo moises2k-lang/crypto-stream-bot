@@ -43,8 +43,6 @@ serve(async (req) => {
     const { message, userId }: NotificationData = await req.json();
     const targetUserId = userId || user.id;
 
-    console.log(`Sending notification to user ${targetUserId}`);
-
     // Get user's telegram connection
     const { data: connection, error: connectionError } = await supabase
       .from('telegram_connections')
@@ -54,7 +52,6 @@ serve(async (req) => {
       .single();
 
     if (connectionError || !connection) {
-      console.log('User has no active Telegram connection');
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -85,11 +82,8 @@ serve(async (req) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Telegram API error:', data);
       throw new Error(`Telegram API error: ${data.description || 'Unknown error'}`);
     }
-
-    console.log('Personal notification sent successfully');
 
     return new Response(
       JSON.stringify({ success: true, message: 'Notificación enviada' }),
@@ -99,7 +93,6 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in send-personal-notification:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),

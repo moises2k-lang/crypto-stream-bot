@@ -13,16 +13,19 @@ serve(async (req) => {
 
   try {
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const webhookSecret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET');
     
     if (!botToken) {
       throw new Error('TELEGRAM_BOT_TOKEN no está configurado');
     }
 
+    if (!webhookSecret) {
+      throw new Error('TELEGRAM_WEBHOOK_SECRET no está configurado');
+    }
+
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/telegram-webhook`;
 
-    console.log('Configurando webhook:', webhookUrl);
-
-    // Set webhook
+    // Set webhook with secret token
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/setWebhook`,
       {
@@ -32,6 +35,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           url: webhookUrl,
+          secret_token: webhookSecret,
           drop_pending_updates: true,
         }),
       }
@@ -40,11 +44,8 @@ serve(async (req) => {
     const data = await response.json();
 
     if (!data.ok) {
-      console.error('Error al configurar webhook:', data);
       throw new Error(data.description || 'Error al configurar webhook');
     }
-
-    console.log('Webhook configurado exitosamente:', data);
 
     return new Response(
       JSON.stringify({
@@ -60,7 +61,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error setting up webhook:', error);
     return new Response(
       JSON.stringify({ 
         success: false,

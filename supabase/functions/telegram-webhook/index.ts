@@ -28,12 +28,22 @@ serve(async (req) => {
   }
 
   try {
+    // Verify webhook secret token
+    const WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET');
+    const providedSecret = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
+
+    if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const update: TelegramUpdate = await req.json();
-    console.log('Telegram webhook received:', JSON.stringify(update));
 
     // Handle /start command with deep link parameter
     if (update.message?.text?.startsWith('/start')) {
@@ -45,8 +55,6 @@ serve(async (req) => {
       // If there's a parameter, it's the user_id from our app
       if (parts.length > 1) {
         const userId = parts[1];
-        
-        console.log(`Connecting user ${userId} to Telegram chat ${chatId}`);
 
         // Save or update the telegram connection
         const { error: upsertError } = await supabase
@@ -63,7 +71,6 @@ serve(async (req) => {
           });
 
         if (upsertError) {
-          console.error('Error saving telegram connection:', upsertError);
           throw upsertError;
         }
 
@@ -79,8 +86,6 @@ serve(async (req) => {
             }),
           });
         }
-
-        console.log(`Successfully connected user ${userId} to Telegram`);
       }
     }
 
@@ -92,7 +97,6 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in telegram-webhook:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
