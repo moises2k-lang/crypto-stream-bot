@@ -12,6 +12,7 @@ serve(async (req) => {
   }
 
   try {
+    const { page = 1, pageSize = 10 } = await req.json().catch(() => ({}));
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -50,11 +51,21 @@ serve(async (req) => {
       );
     }
 
-    // Get all profiles
+    // Calculate pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    // Get total count
+    const { count: totalCount } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
+
+    // Get paginated profiles
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (profilesError) {
       throw profilesError;
@@ -68,7 +79,7 @@ serve(async (req) => {
           .from('user_stats')
           .select('*')
           .eq('user_id', profile.user_id)
-          .single();
+          .maybeSingle();
 
         // Get user roles
         const { data: roles } = await supabase
@@ -100,7 +111,15 @@ serve(async (req) => {
     );
 
     return new Response(
-      JSON.stringify({ users: usersWithData }),
+      JSON.stringify({ 
+        users: usersWithData,
+        pagination: {
+          page,
+          pageSize,
+          totalCount: totalCount || 0,
+          totalPages: Math.ceil((totalCount || 0) / pageSize)
+        }
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 

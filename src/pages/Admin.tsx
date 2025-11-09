@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown } from "lucide-react";
+import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -37,6 +38,10 @@ const Admin = () => {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     checkAdminAccess();
@@ -78,6 +83,10 @@ const Admin = () => {
       }
 
       const { data, error } = await supabase.functions.invoke('admin-get-users', {
+        body: {
+          page: currentPage,
+          pageSize: pageSize
+        },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -86,6 +95,8 @@ const Admin = () => {
       if (error) throw error;
 
       setUsers(data.users || []);
+      setTotalCount(data.pagination?.totalCount || 0);
+      setTotalPages(data.pagination?.totalPages || 0);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast.error(error.message || "Error al cargar usuarios");
@@ -93,6 +104,12 @@ const Admin = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchUsers();
+    }
+  }, [currentPage, pageSize, isAdmin]);
 
   const handleToggleActive = async (userId: string, currentStatus: boolean) => {
     setActionLoading(true);
@@ -250,6 +267,85 @@ const Admin = () => {
                 })}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {users.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} - {Math.min(currentPage * pageSize, totalCount)} de {totalCount} usuarios
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="pageSize" className="text-sm">Usuarios por página:</Label>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger id="pageSize" className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Anterior
+                </Button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        disabled={loading}
+                        className="w-10"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </main>
