@@ -342,38 +342,22 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Webhook Status Indicator - Solo visible para administradores */}
-          {isAdmin && (
+          {/* Webhook Status - Solo visible para administradores */}
+          {isAdmin && !webhookStatus.configured && !webhookStatus.loading && (
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
               <div className="flex items-center gap-2">
-                {webhookStatus.loading ? (
-                  <>
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-pulse" />
-                    <span className="text-sm text-muted-foreground">Verificando webhook...</span>
-                  </>
-                ) : webhookStatus.configured ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                    <span className="text-sm font-medium">Webhook configurado</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-4 w-4 text-warning" />
-                    <span className="text-sm font-medium text-warning">Webhook no configurado</span>
-                  </>
-                )}
+                <AlertCircle className="h-4 w-4 text-warning" />
+                <span className="text-sm font-medium text-warning">Webhook no configurado</span>
               </div>
-              {!webhookStatus.configured && !webhookStatus.loading && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSetupWebhook}
-                  disabled={webhookStatus.setting}
-                >
-                  <Settings className="h-3 w-3 mr-1" />
-                  {webhookStatus.setting ? "Configurando..." : "Configurar"}
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSetupWebhook}
+                disabled={webhookStatus.setting}
+              >
+                <Settings className="h-3 w-3 mr-1" />
+                {webhookStatus.setting ? "Configurando..." : "Configurar"}
+              </Button>
             </div>
           )}
 
