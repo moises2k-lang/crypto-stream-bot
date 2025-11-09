@@ -216,7 +216,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Exchanges</CardTitle>
-            {isConnected && (
+            {(connections.binance || connections.bybit) && (
               <Badge variant="outline" className="bg-success/10 text-success border-success/20">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Conectado
