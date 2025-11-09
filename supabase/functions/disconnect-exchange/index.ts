@@ -41,8 +41,6 @@ Deno.serve(async (req) => {
       throw new Error('Exchange name is required');
     }
 
-    console.log(`Disconnecting ${exchange} for user ${user.id}`);
-
     // Delete credentials from exchange_credentials
     const { error: deleteCredsError } = await supabase
       .from('exchange_credentials')
@@ -66,8 +64,6 @@ Deno.serve(async (req) => {
       console.error('Error deleting connection:', deleteConnError);
       throw deleteConnError;
     }
-
-    console.log(`Successfully disconnected ${exchange} for user ${user.id}`);
 
     return new Response(
       JSON.stringify({ 

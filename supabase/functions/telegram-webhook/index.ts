@@ -55,6 +55,18 @@ serve(async (req) => {
       // If there's a parameter, it's the user_id from our app
       if (parts.length > 1) {
         const userId = parts[1];
+        
+        // Validate UUID format
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!UUID_REGEX.test(userId)) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid user ID format' }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400 
+            }
+          );
+        }
 
         // Save or update the telegram connection
         const { error: upsertError } = await supabase

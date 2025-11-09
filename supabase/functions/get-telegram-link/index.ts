@@ -37,8 +37,6 @@ serve(async (req) => {
     // Create deep link with user ID
     const deepLink = `https://t.me/${botUsername}?start=${user.id}`;
 
-    console.log(`Generated Telegram link for user ${user.id}`);
-
     return new Response(
       JSON.stringify({ 
         success: true, 

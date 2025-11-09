@@ -123,8 +123,6 @@ ${emoji} *NUEVA SEÑAL DE TRADING* ${emoji}
       throw new Error(`Telegram API error: ${data.description || 'Unknown error'}`);
     }
 
-    console.log('Signal sent successfully to Telegram');
-
     return new Response(
       JSON.stringify({ success: true, message: 'Signal sent to Telegram' }),
       { 
