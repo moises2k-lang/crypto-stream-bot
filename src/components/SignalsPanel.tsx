@@ -1,39 +1,60 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, TrendingUp, TrendingDown, Send } from "lucide-react";
+import { Square, TrendingUp, TrendingDown, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-const signals = [
-  {
-    id: 1,
-    pair: "BTC/USDT",
-    type: "LONG",
-    entry: "43,250",
-    target: "44,500",
-    stop: "42,800",
-    status: "active",
-    time: "10:23 AM"
-  },
-  {
-    id: 3,
-    pair: "SOL/USDT",
-    type: "LONG",
-    entry: "98.50",
-    target: "102.00",
-    stop: "96.00",
-    status: "active",
-    time: "09:45 AM"
-  },
-];
+interface Signal {
+  id: string;
+  pair: string;
+  type: string;
+  entry: string;
+  target: string;
+  stop_loss: string;
+  status: string;
+  created_at: string;
+}
 
 export const SignalsPanel = () => {
-  const handleExecute = (signal: any) => {
-    toast.success(`Ejecutando señal ${signal.type} en ${signal.pair}`);
+  const [signals, setSignals] = useState<Signal[]>([]);
+
+  useEffect(() => {
+    fetchSignals();
+  }, []);
+
+  const fetchSignals = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('signals')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      setSignals(data);
+    }
   };
 
-  const handleSendToTelegram = async (signal: any) => {
+  const handleClose = async (signalId: string) => {
+    const { error } = await supabase
+      .from('signals')
+      .update({ status: 'closed' })
+      .eq('id', signalId);
+
+    if (error) {
+      toast.error("Error al cerrar posición");
+    } else {
+      toast.success("Posición cerrada");
+      fetchSignals();
+    }
+  };
+
+  const handleSendToTelegram = async (signal: Signal) => {
     try {
       toast.loading('Enviando señal a Telegram...');
       
@@ -43,7 +64,7 @@ export const SignalsPanel = () => {
           type: signal.type,
           entry: signal.entry,
           target: signal.target,
-          stop: signal.stop,
+          stop: signal.stop_loss,
         },
       });
 
@@ -72,80 +93,87 @@ export const SignalsPanel = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {signals.map((signal) => (
-            <div 
-              key={signal.id}
-              className="bg-background border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    signal.type === 'LONG' 
-                      ? 'bg-success/10' 
-                      : 'bg-danger/10'
-                  }`}>
-                    {signal.type === 'LONG' ? (
-                      <TrendingUp className="h-4 w-4 text-success" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-danger" />
-                    )}
+        {signals.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">
+            No hay operaciones activas
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {signals.map((signal) => (
+              <div 
+                key={signal.id}
+                className="bg-background border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      signal.type === 'LONG' 
+                        ? 'bg-success/10' 
+                        : 'bg-danger/10'
+                    }`}>
+                      {signal.type === 'LONG' ? (
+                        <TrendingUp className="h-4 w-4 text-success" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-danger" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">{signal.pair}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(signal.created_at).toLocaleTimeString('es-ES', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge 
+                    variant="outline"
+                    className="bg-success/10 text-success border-success/20"
+                  >
+                    Activa
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Entrada</p>
+                    <p className="text-sm font-medium text-foreground">${signal.entry}</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground">{signal.pair}</p>
-                    <p className="text-xs text-muted-foreground">{signal.time}</p>
+                    <p className="text-xs text-muted-foreground">Objetivo</p>
+                    <p className="text-sm font-medium text-success">${signal.target}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Stop Loss</p>
+                    <p className="text-sm font-medium text-danger">${signal.stop_loss}</p>
                   </div>
                 </div>
-                <Badge 
-                  variant="outline"
-                  className={
-                    signal.status === 'active' 
-                      ? 'bg-success/10 text-success border-success/20'
-                      : 'bg-muted text-muted-foreground border-border'
-                  }
-                >
-                  {signal.status === 'active' ? 'Activa' : 'Pendiente'}
-                </Badge>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Entrada</p>
-                  <p className="text-sm font-medium text-foreground">${signal.entry}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Objetivo</p>
-                  <p className="text-sm font-medium text-success">${signal.target}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Stop Loss</p>
-                  <p className="text-sm font-medium text-danger">${signal.stop}</p>
-                </div>
-              </div>
 
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => toast.info("Cerrando posición...")}
-                  className="flex-1 border-danger/50 text-danger hover:bg-danger/10"
-                >
-                  <Square className="h-3 w-3 mr-1" />
-                  Cerrar
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => handleSendToTelegram(signal)}
-                  className="border-primary/50 text-primary hover:bg-primary/10"
-                >
-                  <Send className="h-3 w-3 mr-1" />
-                  Telegram
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleClose(signal.id)}
+                    className="flex-1 border-danger/50 text-danger hover:bg-danger/10"
+                  >
+                    <Square className="h-3 w-3 mr-1" />
+                    Cerrar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleSendToTelegram(signal)}
+                    className="border-primary/50 text-primary hover:bg-primary/10"
+                  >
+                    <Send className="h-3 w-3 mr-1" />
+                    Telegram
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -14,7 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      exchange_connections: {
+        Row: {
+          connected_at: string | null
+          created_at: string | null
+          exchange_name: string
+          id: string
+          is_connected: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string | null
+          created_at?: string | null
+          exchange_name: string
+          id?: string
+          is_connected?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          connected_at?: string | null
+          created_at?: string | null
+          exchange_name?: string
+          id?: string
+          is_connected?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      signals: {
+        Row: {
+          created_at: string | null
+          entry: string
+          id: string
+          pair: string
+          status: string | null
+          stop_loss: string
+          target: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entry: string
+          id?: string
+          pair: string
+          status?: string | null
+          stop_loss: string
+          target: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entry?: string
+          id?: string
+          pair?: string
+          status?: string | null
+          stop_loss?: string
+          target?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trades: {
+        Row: {
+          created_at: string | null
+          entry: string
+          exit: string
+          id: string
+          pair: string
+          percentage: string
+          profit: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entry: string
+          exit: string
+          id?: string
+          pair: string
+          percentage: string
+          profit: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entry?: string
+          exit?: string
+          id?: string
+          pair?: string
+          percentage?: string
+          profit?: string
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_stats: {
+        Row: {
+          created_at: string | null
+          id: string
+          today_pnl: number | null
+          total_balance: number | null
+          updated_at: string | null
+          user_id: string
+          win_rate: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          today_pnl?: number | null
+          total_balance?: number | null
+          updated_at?: string | null
+          user_id: string
+          win_rate?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          today_pnl?: number | null
+          total_balance?: number | null
+          updated_at?: string | null
+          user_id?: string
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

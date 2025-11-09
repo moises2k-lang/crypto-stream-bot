@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Link2, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ExchangeConnectionsProps {
   isConnected: boolean;
@@ -13,10 +14,85 @@ interface ExchangeConnectionsProps {
 
 export const ExchangeConnections = ({ isConnected, onConnectionChange }: ExchangeConnectionsProps) => {
   const [activeTab, setActiveTab] = useState("binance");
+  const [connections, setConnections] = useState<{[key: string]: boolean}>({
+    binance: false,
+    bybit: false,
+    telegram: false
+  });
 
-  const handleConnect = (exchange: string) => {
+  useEffect(() => {
+    fetchConnections();
+  }, []);
+
+  const fetchConnections = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('exchange_connections')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (data) {
+      const connectionsMap: {[key: string]: boolean} = {};
+      data.forEach(conn => {
+        connectionsMap[conn.exchange_name.toLowerCase()] = conn.is_connected;
+      });
+      setConnections(connectionsMap);
+      
+      const anyConnected = Object.values(connectionsMap).some(v => v);
+      onConnectionChange(anyConnected);
+    }
+  };
+
+  const handleConnect = async (exchange: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Debes iniciar sesión");
+      return;
+    }
+
+    // Check if connection exists
+    const { data: existing } = await supabase
+      .from('exchange_connections')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('exchange_name', exchange)
+      .single();
+
+    if (existing) {
+      // Update existing connection
+      const { error } = await supabase
+        .from('exchange_connections')
+        .update({ 
+          is_connected: true, 
+          connected_at: new Date().toISOString() 
+        })
+        .eq('id', existing.id);
+
+      if (error) {
+        toast.error("Error al conectar");
+        return;
+      }
+    } else {
+      // Create new connection
+      const { error } = await supabase
+        .from('exchange_connections')
+        .insert({
+          user_id: user.id,
+          exchange_name: exchange,
+          is_connected: true,
+          connected_at: new Date().toISOString()
+        });
+
+      if (error) {
+        toast.error("Error al conectar");
+        return;
+      }
+    }
+
     toast.success(`Conectado a ${exchange}`);
-    onConnectionChange(true);
+    await fetchConnections();
   };
 
   return (
@@ -47,9 +123,19 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
               <Button 
                 onClick={() => handleConnect("Binance")}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={connections.binance}
               >
-                <Link2 className="h-4 w-4 mr-2" />
-                Conectar Binance
+                {connections.binance ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Conectado
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Conectar Binance
+                  </>
+                )}
               </Button>
             </TabsContent>
             
@@ -57,9 +143,19 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
               <Button 
                 onClick={() => handleConnect("Bybit")}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={connections.bybit}
               >
-                <Link2 className="h-4 w-4 mr-2" />
-                Conectar Bybit
+                {connections.bybit ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Conectado
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Conectar Bybit
+                  </>
+                )}
               </Button>
             </TabsContent>
           </Tabs>
@@ -75,14 +171,21 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         </CardHeader>
         <CardContent>
           <Button 
-            onClick={() => {
-              toast.success("Conectado a Telegram");
-              onConnectionChange(true);
-            }}
+            onClick={() => handleConnect("Telegram")}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+            disabled={connections.telegram}
           >
-            <Send className="h-4 w-4 mr-2" />
-            Conectar Telegram
+            {connections.telegram ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Conectado
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Conectar Telegram
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>

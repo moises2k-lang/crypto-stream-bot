@@ -12,9 +12,9 @@ interface MarketData {
   color: string;
 }
 
-const COIN_IDS = ['bitcoin', 'ethereum', 'solana', 'binancecoin'];
-const MARKET_NAMES = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+const COIN_IDS = ['monero', 'bitcoin', 'ethereum', 'solana', 'binancecoin'];
+const MARKET_NAMES = ['XMR/USDT', 'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
+const COLORS = ['hsl(var(--chart-3))', 'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export const MarketCharts = () => {
   const [markets, setMarkets] = useState<MarketData[]>([]);
