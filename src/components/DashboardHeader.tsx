@@ -52,6 +52,7 @@ export const DashboardHeader = () => {
       toast.error("Error al cerrar sesión");
     } else {
       toast.success("Sesión cerrada");
+      navigate('/');
     }
   };
 
