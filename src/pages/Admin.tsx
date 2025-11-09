@@ -11,12 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Edit } from "lucide-react";
 
 interface UserData {
   id: string;
   user_id: string;
   email: string;
+  full_name?: string;
   is_active: boolean;
   created_at: string;
   user_stats: {
@@ -34,9 +35,12 @@ const Admin = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -162,11 +166,50 @@ const Admin = () => {
       if (error) throw error;
 
       toast.success("Contraseña restablecida correctamente");
-      setDialogOpen(false);
+      setPasswordDialogOpen(false);
       setNewPassword("");
       setSelectedUser(null);
     } catch (error: any) {
       toast.error(error.message || "Error al restablecer contraseña");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditProfile = async () => {
+    if (!selectedUser || !editFullName.trim() || !editEmail.trim()) {
+      toast.error("Nombre y correo son requeridos");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { error } = await supabase.functions.invoke('admin-update-user', {
+        body: {
+          userId: selectedUser.user_id,
+          action: 'update_profile',
+          data: { 
+            fullName: editFullName.trim(),
+            email: editEmail.trim()
+          }
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("Perfil actualizado correctamente");
+      setEditDialogOpen(false);
+      setEditFullName("");
+      setEditEmail("");
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Error al actualizar perfil");
     } finally {
       setActionLoading(false);
     }
@@ -199,6 +242,7 @@ const Admin = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Rol</TableHead>
@@ -218,7 +262,8 @@ const Admin = () => {
 
                   return (
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.email}</TableCell>
+                      <TableCell className="font-medium">{user.full_name || 'Sin nombre'}</TableCell>
+                      <TableCell>{user.email}</TableCell>
                       <TableCell>
                         <Badge variant={user.is_active ? "default" : "secondary"}>
                           {user.is_active ? "Activo" : "Inactivo"}
@@ -244,8 +289,23 @@ const Admin = () => {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setEditFullName(user.full_name || '');
+                              setEditEmail(user.email);
+                              setEditDialogOpen(true);
+                            }}
+                            disabled={actionLoading}
+                            title="Editar perfil"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleToggleActive(user.user_id, user.is_active)}
                             disabled={actionLoading}
+                            title={user.is_active ? "Desactivar usuario" : "Activar usuario"}
                           >
                             {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                           </Button>
@@ -254,9 +314,10 @@ const Admin = () => {
                             variant="outline"
                             onClick={() => {
                               setSelectedUser(user);
-                              setDialogOpen(true);
+                              setPasswordDialogOpen(true);
                             }}
                             disabled={actionLoading}
+                            title="Cambiar contraseña"
                           >
                             <Key className="h-4 w-4" />
                           </Button>
@@ -350,7 +411,50 @@ const Admin = () => {
         </Card>
       </main>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Edit Profile Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Perfil</DialogTitle>
+            <DialogDescription>
+              Editar información de: {selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editFullName">Nombre Completo</Label>
+              <Input
+                id="editFullName"
+                type="text"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                placeholder="Nombre del usuario"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editEmail">Correo Electrónico</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="email@ejemplo.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditProfile} disabled={actionLoading}>
+              {actionLoading ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Restablecer Contraseña</DialogTitle>
@@ -371,7 +475,7 @@ const Admin = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={handleResetPassword} disabled={actionLoading}>

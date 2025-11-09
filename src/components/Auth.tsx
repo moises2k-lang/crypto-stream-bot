@@ -30,6 +30,7 @@ export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
   const recaptchaRef = useRef<number | null>(null);
@@ -59,6 +60,12 @@ export const Auth = () => {
         toast.error(error.errors[0].message);
         return;
       }
+    }
+
+    // Validar nombre si es registro
+    if (!isLogin && !fullName.trim()) {
+      toast.error("El nombre es requerido");
+      return;
     }
 
     // Verify reCAPTCHA v3 for both login and signup
@@ -109,7 +116,11 @@ export const Auth = () => {
         // Create user profile and stats
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('profiles').insert({ user_id: user.id, email: email.trim() });
+          await supabase.from('profiles').insert({ 
+            user_id: user.id, 
+            email: email.trim(),
+            full_name: fullName.trim()
+          });
           await supabase.from('user_stats').insert({ 
             user_id: user.id,
             total_balance: 0,
@@ -150,6 +161,20 @@ export const Auth = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Nombre Completo</label>
+                <Input
+                  type="text"
+                  placeholder="Tu nombre"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required={!isLogin}
+                  className="bg-background border-border"
+                />
+              </div>
+            )}
+            
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Email</label>
               <Input

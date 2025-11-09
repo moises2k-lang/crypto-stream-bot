@@ -80,6 +80,29 @@ serve(async (req) => {
         break;
       }
 
+      case 'update_profile': {
+        // Update profile
+        const updateData: any = {};
+        if (data.fullName !== undefined) updateData.full_name = data.fullName;
+        if (data.email !== undefined) updateData.email = data.email;
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('user_id', userId);
+
+        if (profileError) throw profileError;
+
+        // Update email in auth if provided
+        if (data.email) {
+          const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+            email: data.email
+          });
+          if (authError) throw authError;
+        }
+        break;
+      }
+
       case 'update_role': {
         // First, remove existing roles
         await supabase
