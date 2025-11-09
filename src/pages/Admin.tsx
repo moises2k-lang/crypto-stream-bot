@@ -35,12 +35,14 @@ const Admin = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [editFullName, setEditFullName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<string>("user");
   const [actionLoading, setActionLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -59,13 +61,15 @@ const Admin = () => {
       return;
     }
 
+    setCurrentUserId(user.id);
+
     // Check if user has admin role
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
-      .single();
+      .maybeSingle();
 
     if (!roleData) {
       toast.error("Acceso denegado: Se requieren permisos de administrador");
@@ -186,7 +190,8 @@ const Admin = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      const { error } = await supabase.functions.invoke('admin-update-user', {
+      // Update profile
+      const { error: profileError } = await supabase.functions.invoke('admin-update-user', {
         body: {
           userId: selectedUser.user_id,
           action: 'update_profile',
@@ -200,12 +205,30 @@ const Admin = () => {
         },
       });
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Update role if changed
+      const currentRole = selectedUser.user_roles?.[0]?.role || 'user';
+      if (editRole !== currentRole) {
+        const { error: roleError } = await supabase.functions.invoke('admin-update-user', {
+          body: {
+            userId: selectedUser.user_id,
+            action: 'update_role',
+            data: { role: editRole }
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+
+        if (roleError) throw roleError;
+      }
 
       toast.success("Perfil actualizado correctamente");
       setEditDialogOpen(false);
       setEditFullName("");
       setEditEmail("");
+      setEditRole("user");
       setSelectedUser(null);
       fetchUsers();
     } catch (error: any) {
@@ -259,6 +282,7 @@ const Admin = () => {
                   const stats = user.user_stats;
                   const role = user.user_roles?.[0]?.role || 'user';
                   const pnlPositive = (stats?.today_pnl || 0) >= 0;
+                  const isCurrentUser = user.user_id === currentUserId;
 
                   return (
                     <TableRow key={user.id}>
@@ -293,6 +317,7 @@ const Admin = () => {
                               setSelectedUser(user);
                               setEditFullName(user.full_name || '');
                               setEditEmail(user.email);
+                              setEditRole(role);
                               setEditDialogOpen(true);
                             }}
                             disabled={actionLoading}
@@ -300,15 +325,17 @@ const Admin = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleToggleActive(user.user_id, user.is_active)}
-                            disabled={actionLoading}
-                            title={user.is_active ? "Desactivar usuario" : "Activar usuario"}
-                          >
-                            {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                          </Button>
+                          {!isCurrentUser && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleActive(user.user_id, user.is_active)}
+                              disabled={actionLoading}
+                              title={user.is_active ? "Desactivar usuario" : "Activar usuario"}
+                            >
+                              {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
@@ -440,6 +467,28 @@ const Admin = () => {
                 onChange={(e) => setEditEmail(e.target.value)}
                 placeholder="email@ejemplo.com"
               />
+            </div>
+            <div>
+              <Label htmlFor="editRole">Rol</Label>
+              <Select
+                value={editRole}
+                onValueChange={(value) => {
+                  // No permitir cambiar el rol del usuario actual si es admin
+                  if (selectedUser?.user_id === currentUserId && value !== 'admin') {
+                    toast.error("No puedes quitarte los permisos de administrador");
+                    return;
+                  }
+                  setEditRole(value);
+                }}
+              >
+                <SelectTrigger id="editRole">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Usuario</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
