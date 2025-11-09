@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Brush } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
-import { ArrowUpIcon, ArrowDownIcon, TrendingUp, Activity } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon, TrendingUp, Activity, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 
 interface MarketData {
   name: string;
@@ -26,6 +28,8 @@ export const MarketCharts = () => {
   const [markets, setMarkets] = useState<MarketData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'1h' | '24h' | '7d'>('24h');
+  const [zoomLevel, setZoomLevel] = useState<{ [key: string]: number }>({});
+  const [dataRange, setDataRange] = useState<{ [key: string]: [number, number] }>({});
   const { toast } = useToast();
 
   const fetchMarketData = async () => {
@@ -165,6 +169,31 @@ export const MarketCharts = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleZoomIn = (coinId: string, dataLength: number) => {
+    setZoomLevel(prev => ({
+      ...prev,
+      [coinId]: Math.min((prev[coinId] || 100) + 20, 200)
+    }));
+  };
+
+  const handleZoomOut = (coinId: string) => {
+    setZoomLevel(prev => ({
+      ...prev,
+      [coinId]: Math.max((prev[coinId] || 100) - 20, 40)
+    }));
+  };
+
+  const handleResetZoom = (coinId: string, dataLength: number) => {
+    setZoomLevel(prev => ({ ...prev, [coinId]: 100 }));
+    setDataRange(prev => ({ ...prev, [coinId]: [0, dataLength - 1] }));
+  };
+
+  const getVisibleData = (data: any[], coinId: string) => {
+    const range = dataRange[coinId];
+    if (!range) return data;
+    return data.slice(range[0], range[1] + 1);
+  };
+
   if (isLoading) {
     return (
       <Card className="bg-card border-border">
@@ -203,6 +232,9 @@ export const MarketCharts = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {markets.map((market) => {
             const isPositive = market.change.startsWith('+');
+            const currentZoom = zoomLevel[market.coinId] || 100;
+            const visibleData = getVisibleData(market.data, market.coinId);
+            
             return (
               <div 
                 key={market.name}
@@ -228,6 +260,37 @@ export const MarketCharts = () => {
                       {market.change}
                     </div>
                   </div>
+                  
+                  {/* Zoom Controls */}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => handleZoomIn(market.coinId, market.data.length)}
+                      disabled={currentZoom >= 200}
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => handleZoomOut(market.coinId)}
+                      disabled={currentZoom <= 40}
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => handleResetZoom(market.coinId, market.data.length)}
+                      title="Restablecer vista"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
@@ -244,9 +307,28 @@ export const MarketCharts = () => {
                     <p className="text-sm font-semibold text-destructive">${market.low24h}</p>
                   </div>
                 </div>
+
+                {/* Zoom Level Indicator */}
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Zoom:</span>
+                  <div className="flex-1">
+                    <Slider
+                      value={[currentZoom]}
+                      onValueChange={([value]) => setZoomLevel(prev => ({ ...prev, [market.coinId]: value }))}
+                      min={40}
+                      max={200}
+                      step={10}
+                      className="w-full"
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-foreground min-w-[40px]">{currentZoom}%</span>
+                </div>
                 
-                <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart data={market.data}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart 
+                    data={visibleData}
+                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                  >
                     <defs>
                       <linearGradient id={`gradient-${market.coinId}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={market.color} stopOpacity={0.3}/>
@@ -291,6 +373,20 @@ export const MarketCharts = () => {
                       fill={`url(#gradient-${market.coinId})`}
                       dot={false}
                       activeDot={{ r: 6, fill: market.color }}
+                    />
+                    <Brush
+                      dataKey="time"
+                      height={30}
+                      stroke={market.color}
+                      fill="hsl(var(--muted))"
+                      onChange={(range: any) => {
+                        if (range && range.startIndex !== undefined && range.endIndex !== undefined) {
+                          setDataRange(prev => ({
+                            ...prev,
+                            [market.coinId]: [range.startIndex, range.endIndex]
+                          }));
+                        }
+                      }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
