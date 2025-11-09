@@ -2,3 +2,12 @@ project_id = "vagvtlmvltqsudaxulvl"
 
 [functions.send-telegram-signal]
 verify_jwt = false
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.send-personal-notification]
+verify_jwt = true
+
+[functions.get-telegram-link]
+verify_jwt = true

@@ -28,6 +28,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [saving, setSaving] = useState(false);
+  const [telegramConnecting, setTelegramConnecting] = useState(false);
 
   useEffect(() => {
     fetchConnections();
@@ -52,17 +53,64 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
       const anyConnected = Object.values(connectionsMap).some(v => v);
       onConnectionChange(anyConnected);
     }
+
+    // Check telegram connection separately
+    const { data: telegramData } = await supabase
+      .from('telegram_connections')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    setConnections(prev => ({
+      ...prev,
+      telegram: !!telegramData
+    }));
   };
 
-  const handleConnect = (exchange: string) => {
+  const handleConnect = async (exchange: string) => {
     if (exchange === "Telegram") {
-      toast.info("Próximamente: Conexión con Telegram Bot", {
-        description: "Te avisaremos cuando esté disponible"
-      });
+      await handleTelegramConnect();
       return;
     }
     setSelectedExchange(exchange);
     setDialogOpen(true);
+  };
+
+  const handleTelegramConnect = async () => {
+    setTelegramConnecting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Debes iniciar sesión");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('get-telegram-link', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.link) {
+        window.open(data.link, '_blank');
+        toast.success("Abre Telegram e inicia conversación con el bot", {
+          description: "Presiona /start para conectar tu cuenta"
+        });
+        
+        // Poll for connection status
+        setTimeout(() => {
+          fetchConnections();
+        }, 3000);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al conectar con Telegram");
+    } finally {
+      setTelegramConnecting(false);
+    }
   };
 
   const handleSaveKeys = async () => {
@@ -177,13 +225,15 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           <Button 
             onClick={() => handleConnect("Telegram")}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={connections.telegram}
+            disabled={connections.telegram || telegramConnecting}
           >
             {connections.telegram ? (
               <>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Conectado
               </>
+            ) : telegramConnecting ? (
+              "Conectando..."
             ) : (
               <>
                 <Send className="h-4 w-4 mr-2" />
