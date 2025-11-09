@@ -58,12 +58,26 @@ export const SignalsPanel = () => {
           schema: 'public',
           table: 'signals',
         },
-        (payload) => {
+        async (payload) => {
           console.log('New signal received:', payload);
           const newSignal = payload.new as Signal;
           
           // Update signals list
           setSignals((prev) => [newSignal, ...prev]);
+          
+          // Save notification to history
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const notificationType = newSignal.type === 'LONG' ? 'signal_long' : 'signal_short';
+            await supabase.from('notifications').insert({
+              user_id: user.id,
+              title: `Nueva Señal de Trading: ${newSignal.pair}`,
+              message: `${newSignal.type} - Entrada: $${newSignal.entry} | Target: $${newSignal.target}`,
+              type: notificationType,
+              signal_id: newSignal.id,
+              read: false,
+            });
+          }
           
           // Show browser notification if enabled
           if (notificationsEnabled && permission === 'granted') {

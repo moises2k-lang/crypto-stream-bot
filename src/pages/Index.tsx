@@ -5,8 +5,10 @@ import { ExchangeConnections } from "@/components/ExchangeConnections";
 import { SignalsPanel } from "@/components/SignalsPanel";
 import { TradesHistory } from "@/components/TradesHistory";
 import { MarketCharts } from "@/components/MarketCharts";
+import { NotificationsHistory } from "@/components/NotificationsHistory";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -40,7 +42,20 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <MarketCharts />
-            <SignalsPanel />
+            
+            <Tabs defaultValue="signals" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signals">Operaciones Activas</TabsTrigger>
+                <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+              </TabsList>
+              <TabsContent value="signals" className="mt-6">
+                <SignalsPanel />
+              </TabsContent>
+              <TabsContent value="notifications" className="mt-6">
+                <NotificationsHistory />
+              </TabsContent>
+            </Tabs>
+            
             <TradesHistory />
           </div>
           
