@@ -1,21 +1,99 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useToast } from "@/hooks/use-toast";
 
-const generateMockData = (basePrice: number) => {
-  return Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    price: basePrice + (Math.random() - 0.5) * basePrice * 0.05,
-  }));
-};
+interface MarketData {
+  name: string;
+  coinId: string;
+  price: string;
+  change: string;
+  data: { time: string; price: number }[];
+  color: string;
+}
 
-const markets = [
-  { name: 'BTC/USDT', price: '43,250', change: '+2.45%', data: generateMockData(43250), color: 'hsl(var(--chart-1))' },
-  { name: 'ETH/USDT', price: '2,280', change: '-1.23%', data: generateMockData(2280), color: 'hsl(var(--chart-2))' },
-  { name: 'SOL/USDT', price: '98.50', change: '+5.67%', data: generateMockData(98.5), color: 'hsl(var(--chart-4))' },
-  { name: 'BNB/USDT', price: '312.40', change: '+1.89%', data: generateMockData(312.4), color: 'hsl(var(--chart-5))' },
-];
+const COIN_IDS = ['bitcoin', 'ethereum', 'solana', 'binancecoin'];
+const MARKET_NAMES = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
+const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export const MarketCharts = () => {
+  const [markets, setMarkets] = useState<MarketData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchMarketData = async () => {
+    try {
+      // Fetch current prices and 24h change
+      const priceResponse = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${COIN_IDS.join(',')}&vs_currencies=usd&include_24hr_change=true`
+      );
+      const priceData = await priceResponse.json();
+
+      // Fetch 24h chart data for each coin
+      const chartPromises = COIN_IDS.map(coinId =>
+        fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1&interval=hourly`)
+          .then(res => res.json())
+      );
+
+      const chartDataArray = await Promise.all(chartPromises);
+
+      const newMarkets: MarketData[] = COIN_IDS.map((coinId, index) => {
+        const price = priceData[coinId]?.usd || 0;
+        const change = priceData[coinId]?.usd_24h_change || 0;
+        const chartData = chartDataArray[index]?.prices || [];
+
+        const formattedData = chartData.map((point: [number, number]) => {
+          const date = new Date(point[0]);
+          return {
+            time: `${date.getHours()}:00`,
+            price: point[1],
+          };
+        });
+
+        return {
+          name: MARKET_NAMES[index],
+          coinId,
+          price: price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          change: `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`,
+          data: formattedData,
+          color: COLORS[index],
+        };
+      });
+
+      setMarkets(newMarkets);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching market data:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos del mercado",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketData();
+    
+    // Update every 60 seconds
+    const interval = setInterval(fetchMarketData, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground">Principales Mercados</CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Cargando datos del mercado...
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
   return (
     <Card className="bg-card border-border">
       <CardHeader>
