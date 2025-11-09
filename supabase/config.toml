@@ -11,3 +11,9 @@ verify_jwt = true
 
 [functions.get-telegram-link]
 verify_jwt = true
+
+[functions.save-exchange-keys]
+verify_jwt = true
+
+[functions.disconnect-exchange]
+verify_jwt = true

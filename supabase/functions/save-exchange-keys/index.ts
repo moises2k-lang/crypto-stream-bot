@@ -134,7 +134,12 @@ serve(async (req) => {
       });
     }
 
-    // Mark connection as active
+    // Create API key preview (first 6 and last 6 characters)
+    const apiKeyPreview = apiKey.length > 12 
+      ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 6)}`
+      : `${apiKey.substring(0, 3)}...${apiKey.substring(apiKey.length - 3)}`;
+
+    // Mark connection as active with API key preview
     const { error: connError } = await supabase
       .from("exchange_connections")
       .upsert({
@@ -143,6 +148,7 @@ serve(async (req) => {
         is_connected: true,
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        api_key_preview: apiKeyPreview,
       }, { onConflict: 'user_id,exchange_name' });
 
     if (connError) {

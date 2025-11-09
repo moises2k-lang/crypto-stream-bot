@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       exchange_connections: {
         Row: {
+          api_key_preview: string | null
           connected_at: string | null
           created_at: string | null
           exchange_name: string
@@ -25,6 +26,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          api_key_preview?: string | null
           connected_at?: string | null
           created_at?: string | null
           exchange_name: string
@@ -34,6 +36,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          api_key_preview?: string | null
           connected_at?: string | null
           created_at?: string | null
           exchange_name?: string
