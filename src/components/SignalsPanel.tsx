@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Square, TrendingUp, TrendingDown, Send } from "lucide-react";
+import { Square, TrendingUp, TrendingDown, Send, Bell, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface Signal {
   id: string;
@@ -19,10 +20,17 @@ interface Signal {
 
 export const SignalsPanel = () => {
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const { permission, isSupported, requestPermission, showNotification } = useNotifications();
 
   useEffect(() => {
     fetchSignals();
-  }, []);
+    subscribeToSignals();
+    
+    // Check if notifications are enabled
+    const notifEnabled = localStorage.getItem('tradingNotificationsEnabled') === 'true';
+    setNotificationsEnabled(notifEnabled && permission === 'granted');
+  }, [permission]);
 
   const fetchSignals = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -37,6 +45,67 @@ export const SignalsPanel = () => {
 
     if (data) {
       setSignals(data);
+    }
+  };
+
+  const subscribeToSignals = () => {
+    const channel = supabase
+      .channel('signals-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'signals',
+        },
+        (payload) => {
+          console.log('New signal received:', payload);
+          const newSignal = payload.new as Signal;
+          
+          // Update signals list
+          setSignals((prev) => [newSignal, ...prev]);
+          
+          // Show browser notification if enabled
+          if (notificationsEnabled && permission === 'granted') {
+            showNotification(
+              `Nueva Señal de Trading: ${newSignal.pair}`,
+              {
+                body: `${newSignal.type} - Entrada: $${newSignal.entry} | Target: $${newSignal.target}`,
+                tag: newSignal.id,
+                requireInteraction: false,
+              }
+            );
+          }
+          
+          // Also show toast
+          toast.success(`Nueva señal: ${newSignal.pair} ${newSignal.type}`);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  };
+
+  const toggleNotifications = async () => {
+    if (!isSupported) {
+      toast.error('Tu navegador no soporta notificaciones');
+      return;
+    }
+
+    if (!notificationsEnabled) {
+      // Request permission
+      const granted = await requestPermission();
+      if (granted) {
+        setNotificationsEnabled(true);
+        localStorage.setItem('tradingNotificationsEnabled', 'true');
+      }
+    } else {
+      // Disable notifications
+      setNotificationsEnabled(false);
+      localStorage.setItem('tradingNotificationsEnabled', 'false');
+      toast.info('Notificaciones desactivadas');
     }
   };
 
@@ -87,9 +156,29 @@ export const SignalsPanel = () => {
               Posiciones abiertas actualmente
             </CardDescription>
           </div>
-          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-            {signals.length} activas
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={notificationsEnabled ? "default" : "outline"}
+              onClick={toggleNotifications}
+              className="gap-2"
+            >
+              {notificationsEnabled ? (
+                <>
+                  <Bell className="h-4 w-4" />
+                  Notif. ON
+                </>
+              ) : (
+                <>
+                  <BellOff className="h-4 w-4" />
+                  Notif. OFF
+                </>
+              )}
+            </Button>
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+              {signals.length} activas
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
