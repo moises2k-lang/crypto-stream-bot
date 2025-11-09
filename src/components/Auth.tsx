@@ -49,8 +49,8 @@ export const Auth = () => {
   }, []);
 
   useEffect(() => {
-    // Render reCAPTCHA when loaded and in signup mode
-    if (recaptchaLoaded && !isLogin && window.grecaptcha) {
+    // Render reCAPTCHA when loaded
+    if (recaptchaLoaded && window.grecaptcha) {
       setTimeout(() => {
         const container = document.getElementById('recaptcha-container');
         if (container && container.children.length === 0) {
@@ -64,7 +64,7 @@ export const Auth = () => {
         }
       }, 100);
     }
-  }, [recaptchaLoaded, isLogin]);
+  }, [recaptchaLoaded]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,9 +79,33 @@ export const Auth = () => {
       }
     }
 
+    // Verify reCAPTCHA for both login and signup
+    if (!window.grecaptcha) {
+      toast.error("reCAPTCHA no está cargado");
+      return;
+    }
+
+    const recaptchaToken = window.grecaptcha.getResponse(recaptchaRef.current);
+    if (!recaptchaToken) {
+      toast.error("Por favor completa el reCAPTCHA");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // Verify reCAPTCHA token with backend
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+        'verify-recaptcha',
+        { body: { token: recaptchaToken } }
+      );
+
+      if (verifyError || !verifyData?.success) {
+        toast.error("Verificación de reCAPTCHA fallida");
+        window.grecaptcha.reset(recaptchaRef.current);
+        setLoading(false);
+        return;
+      }
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -89,34 +113,8 @@ export const Auth = () => {
         });
         if (error) throw error;
         toast.success("Sesión iniciada correctamente");
+        window.grecaptcha.reset(recaptchaRef.current);
       } else {
-        // Verify reCAPTCHA for signup
-        if (!window.grecaptcha) {
-          toast.error("reCAPTCHA no está cargado");
-          setLoading(false);
-          return;
-        }
-
-        const recaptchaToken = window.grecaptcha.getResponse(recaptchaRef.current);
-        if (!recaptchaToken) {
-          toast.error("Por favor completa el reCAPTCHA");
-          setLoading(false);
-          return;
-        }
-
-        // Verify reCAPTCHA token with backend
-        const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-          'verify-recaptcha',
-          { body: { token: recaptchaToken } }
-        );
-
-        if (verifyError || !verifyData?.success) {
-          toast.error("Verificación de reCAPTCHA fallida");
-          window.grecaptcha.reset(recaptchaRef.current);
-          setLoading(false);
-          return;
-        }
-
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -151,8 +149,8 @@ export const Auth = () => {
         toast.error(error.message || "Ocurrió un error");
       }
       
-      // Reset reCAPTCHA on error in signup mode
-      if (!isLogin && window.grecaptcha && recaptchaRef.current !== null) {
+      // Reset reCAPTCHA on error
+      if (window.grecaptcha && recaptchaRef.current !== null) {
         window.grecaptcha.reset(recaptchaRef.current);
       }
     } finally {
@@ -188,9 +186,7 @@ export const Auth = () => {
               />
             </div>
             
-            {!isLogin && (
-              <div id="recaptcha-container" className="flex justify-center"></div>
-            )}
+            <div id="recaptcha-container" className="flex justify-center my-4"></div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Contraseña</label>
               <Input
