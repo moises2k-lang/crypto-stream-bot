@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Brush } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
-import { ArrowUpIcon, ArrowDownIcon, TrendingUp, Activity, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon, TrendingUp, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 
 interface MarketData {
   name: string;
@@ -24,15 +22,30 @@ const SYMBOLS = ['XMRUSDT', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'];
 const MARKET_NAMES = ['XMR/USDT', 'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
 const COLORS = ['hsl(var(--chart-3))', 'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
+type TimeframePeriod = '24h' | '7d' | '1M' | '1Y';
+
+interface TimeframeConfig {
+  label: string;
+  interval: string;
+  limit: number;
+  binanceInterval: string;
+}
+
+const TIMEFRAME_CONFIGS: Record<TimeframePeriod, TimeframeConfig> = {
+  '24h': { label: '24 Horas', interval: '1h', limit: 24, binanceInterval: '1h' },
+  '7d': { label: '7 Días', interval: '4h', limit: 42, binanceInterval: '4h' },
+  '1M': { label: '1 Mes', interval: '1d', limit: 30, binanceInterval: '1d' },
+  '1Y': { label: '1 Año', interval: '1w', limit: 52, binanceInterval: '1w' },
+};
+
 export const MarketCharts = () => {
   const [markets, setMarkets] = useState<MarketData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<'1h' | '24h' | '7d'>('24h');
-  const [zoomLevel, setZoomLevel] = useState<{ [key: string]: number }>({});
-  const [dataRange, setDataRange] = useState<{ [key: string]: [number, number] }>({});
+  const [timeframe, setTimeframe] = useState<TimeframePeriod>('24h');
   const { toast } = useToast();
 
-  const fetchMarketData = async () => {
+  const fetchMarketData = async (selectedTimeframe: TimeframePeriod = timeframe) => {
+    const config = TIMEFRAME_CONFIGS[selectedTimeframe];
     try {
       // Fetch all market data from Binance API
       const marketPromises = SYMBOLS.map(async (symbol) => {
@@ -50,9 +63,9 @@ export const MarketCharts = () => {
             
             const tickerData = await tickerResponse.json();
             
-            // Get kline data from Binance Futures (1h intervals, last 72 hours)
+            // Get kline data from Binance Futures
             const klineResponse = await fetch(
-              `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1h&limit=72`
+              `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${config.binanceInterval}&limit=${config.limit}`
             );
             
             if (!klineResponse.ok) {
@@ -70,11 +83,20 @@ export const MarketCharts = () => {
               low24h: parseFloat(tickerData.lowPrice),
               chartData: klineData.map((candle: any) => {
                 const date = new Date(candle[0]);
-                const hours = date.getHours().toString().padStart(2, '0');
-                const day = date.getDate().toString().padStart(2, '0');
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                let timeLabel = '';
+                
+                if (selectedTimeframe === '24h') {
+                  timeLabel = `${date.getHours().toString().padStart(2, '0')}:00`;
+                } else if (selectedTimeframe === '7d') {
+                  timeLabel = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}h`;
+                } else if (selectedTimeframe === '1M') {
+                  timeLabel = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                } else {
+                  timeLabel = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}`;
+                }
+                
                 return {
-                  time: `${day}/${month} ${hours}:00`,
+                  time: timeLabel,
                   price: parseFloat(candle[4]), // Close price
                 };
               }),
@@ -91,9 +113,9 @@ export const MarketCharts = () => {
             
             const tickerData = await tickerResponse.json();
             
-            // Get kline/candlestick data for chart (1 hour intervals, last 72 hours)
+            // Get kline/candlestick data for chart
             const klineResponse = await fetch(
-              `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=72`
+              `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${config.binanceInterval}&limit=${config.limit}`
             );
             
             if (!klineResponse.ok) {
@@ -111,11 +133,20 @@ export const MarketCharts = () => {
               low24h: parseFloat(tickerData.lowPrice),
               chartData: klineData.map((candle: any) => {
                 const date = new Date(candle[0]);
-                const hours = date.getHours().toString().padStart(2, '0');
-                const day = date.getDate().toString().padStart(2, '0');
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                let timeLabel = '';
+                
+                if (selectedTimeframe === '24h') {
+                  timeLabel = `${date.getHours().toString().padStart(2, '0')}:00`;
+                } else if (selectedTimeframe === '7d') {
+                  timeLabel = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}h`;
+                } else if (selectedTimeframe === '1M') {
+                  timeLabel = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                } else {
+                  timeLabel = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}`;
+                }
+                
                 return {
-                  time: `${day}/${month} ${hours}:00`,
+                  time: timeLabel,
                   price: parseFloat(candle[4]), // Close price
                 };
               }),
@@ -173,38 +204,13 @@ export const MarketCharts = () => {
   };
 
   useEffect(() => {
-    fetchMarketData();
+    fetchMarketData(timeframe);
     
-    // Update every 30 seconds with Binance API (no strict rate limits)
-    const interval = setInterval(fetchMarketData, 30000);
+    // Update every 30 seconds
+    const interval = setInterval(() => fetchMarketData(timeframe), 30000);
     
     return () => clearInterval(interval);
-  }, []);
-
-  const handleZoomIn = (coinId: string, dataLength: number) => {
-    setZoomLevel(prev => ({
-      ...prev,
-      [coinId]: Math.min((prev[coinId] || 100) + 20, 200)
-    }));
-  };
-
-  const handleZoomOut = (coinId: string) => {
-    setZoomLevel(prev => ({
-      ...prev,
-      [coinId]: Math.max((prev[coinId] || 100) - 20, 40)
-    }));
-  };
-
-  const handleResetZoom = (coinId: string, dataLength: number) => {
-    setZoomLevel(prev => ({ ...prev, [coinId]: 100 }));
-    setDataRange(prev => ({ ...prev, [coinId]: [0, dataLength - 1] }));
-  };
-
-  const getVisibleData = (data: any[], coinId: string) => {
-    const range = dataRange[coinId];
-    if (!range) return data;
-    return data.slice(range[0], range[1] + 1);
-  };
+  }, [timeframe]);
 
   if (isLoading) {
     return (
@@ -228,14 +234,15 @@ export const MarketCharts = () => {
               Principales Mercados
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Gráficos en tiempo real de las últimas 72 horas
+              Gráficos en tiempo real - {TIMEFRAME_CONFIGS[timeframe].label}
             </CardDescription>
           </div>
-          <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as any)} className="w-auto">
+          <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as TimeframePeriod)} className="w-auto">
             <TabsList className="bg-muted">
-              <TabsTrigger value="1h" className="text-xs">1H</TabsTrigger>
-              <TabsTrigger value="24h" className="text-xs">24H</TabsTrigger>
-              <TabsTrigger value="7d" className="text-xs">7D</TabsTrigger>
+              <TabsTrigger value="24h" className="text-xs">24 Horas</TabsTrigger>
+              <TabsTrigger value="7d" className="text-xs">7 Días</TabsTrigger>
+              <TabsTrigger value="1M" className="text-xs">1 Mes</TabsTrigger>
+              <TabsTrigger value="1Y" className="text-xs">1 Año</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -244,8 +251,6 @@ export const MarketCharts = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {markets.map((market) => {
             const isPositive = market.change.startsWith('+');
-            const currentZoom = zoomLevel[market.coinId] || 100;
-            const visibleData = getVisibleData(market.data, market.coinId);
             
             return (
               <div 
@@ -272,37 +277,6 @@ export const MarketCharts = () => {
                       {market.change}
                     </div>
                   </div>
-                  
-                  {/* Zoom Controls */}
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-8 w-8"
-                      onClick={() => handleZoomIn(market.coinId, market.data.length)}
-                      disabled={currentZoom >= 200}
-                    >
-                      <ZoomIn className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-8 w-8"
-                      onClick={() => handleZoomOut(market.coinId)}
-                      disabled={currentZoom <= 40}
-                    >
-                      <ZoomOut className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-8 w-8"
-                      onClick={() => handleResetZoom(market.coinId, market.data.length)}
-                      title="Restablecer vista"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
@@ -320,26 +294,11 @@ export const MarketCharts = () => {
                   </div>
                 </div>
 
-                {/* Zoom Level Indicator */}
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Zoom:</span>
-                  <div className="flex-1">
-                    <Slider
-                      value={[currentZoom]}
-                      onValueChange={([value]) => setZoomLevel(prev => ({ ...prev, [market.coinId]: value }))}
-                      min={40}
-                      max={200}
-                      step={10}
-                      className="w-full"
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-foreground min-w-[40px]">{currentZoom}%</span>
-                </div>
                 
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart 
-                    data={visibleData}
-                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                    data={market.data}
+                    margin={{ top: 5, right: 5, left: 5, bottom: 25 }}
                   >
                     <defs>
                       <linearGradient id={`gradient-${market.coinId}`} x1="0" y1="0" x2="0" y2="1">
@@ -354,13 +313,12 @@ export const MarketCharts = () => {
                     />
                     <XAxis 
                       dataKey="time" 
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }}
                       tickLine={{ stroke: 'hsl(var(--border))' }}
                       axisLine={{ stroke: 'hsl(var(--border))' }}
                       angle={-45}
                       textAnchor="end"
-                      height={60}
-                      interval="preserveStart"
+                      height={50}
                     />
                     <YAxis 
                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
@@ -388,20 +346,6 @@ export const MarketCharts = () => {
                       fill={`url(#gradient-${market.coinId})`}
                       dot={false}
                       activeDot={{ r: 6, fill: market.color }}
-                    />
-                    <Brush
-                      dataKey="time"
-                      height={30}
-                      stroke={market.color}
-                      fill="hsl(var(--muted))"
-                      onChange={(range: any) => {
-                        if (range && range.startIndex !== undefined && range.endIndex !== undefined) {
-                          setDataRange(prev => ({
-                            ...prev,
-                            [market.coinId]: [range.startIndex, range.endIndex]
-                          }));
-                        }
-                      }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
