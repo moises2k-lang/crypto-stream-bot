@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Edit } from "lucide-react";
+import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Edit, ShieldOff } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -175,6 +175,33 @@ const Admin = () => {
       setSelectedUser(null);
     } catch (error: any) {
       toast.error(error.message || "Error al restablecer contraseña");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResetMFA = async (userId: string, userEmail: string) => {
+    if (!confirm(`¿Estás seguro de que deseas resetear el 2FA de ${userEmail}?`)) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { error } = await supabase.functions.invoke('admin-reset-mfa', {
+        body: { userId },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("2FA reseteado correctamente");
+    } catch (error: any) {
+      console.error('Error resetting MFA:', error);
+      toast.error(error.message || "Error al resetear 2FA");
     } finally {
       setActionLoading(false);
     }
@@ -347,6 +374,15 @@ const Admin = () => {
                             title="Cambiar contraseña"
                           >
                             <Key className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleResetMFA(user.user_id, user.email)}
+                            disabled={actionLoading}
+                            title="Resetear 2FA"
+                          >
+                            <ShieldOff className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>

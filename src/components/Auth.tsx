@@ -34,12 +34,8 @@ export const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
-  const [showMFASetup, setShowMFASetup] = useState(false);
-  const [mfaQRCode, setMfaQRCode] = useState("");
-  const [mfaSecret, setMfaSecret] = useState("");
-  const [mfaCode, setMfaCode] = useState("");
   const [showMFAVerify, setShowMFAVerify] = useState(false);
-  const [pendingMFAFactorId, setPendingMFAFactorId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const recaptchaRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -77,49 +73,6 @@ export const Auth = () => {
       setIsResetPassword(false);
     } catch (error: any) {
       toast.error(error.message || "Error al enviar correo de recuperación");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEnrollMFA = async () => {
-    try {
-      const { data, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: 'Google Authenticator'
-      });
-
-      if (error) throw error;
-
-      setMfaQRCode(data.totp.qr_code);
-      setMfaSecret(data.totp.secret);
-      setPendingMFAFactorId(data.id);
-      setShowMFASetup(true);
-    } catch (error: any) {
-      toast.error("Error al configurar 2FA: " + error.message);
-    }
-  };
-
-  const handleVerifyMFASetup = async () => {
-    if (!mfaCode || mfaCode.length !== 6) {
-      toast.error("Ingresa un código de 6 dígitos");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: pendingMFAFactorId,
-        code: mfaCode
-      });
-
-      if (error) throw error;
-
-      toast.success("2FA configurado correctamente");
-      setShowMFASetup(false);
-      setMfaCode("");
-    } catch (error: any) {
-      toast.error("Código incorrecto. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -229,13 +182,6 @@ export const Auth = () => {
         }
 
         toast.success("Sesión iniciada correctamente");
-        
-        // Offer MFA setup for first login
-        setTimeout(() => {
-          if (window.confirm("¿Deseas configurar autenticación de dos factores para mayor seguridad?")) {
-            handleEnrollMFA();
-          }
-        }, 1000);
       } else {
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -263,13 +209,6 @@ export const Auth = () => {
         }
         
         toast.success("Cuenta creada correctamente");
-        
-        // Offer MFA setup after signup
-        setTimeout(() => {
-          if (window.confirm("¿Deseas configurar autenticación de dos factores para mayor seguridad?")) {
-            handleEnrollMFA();
-          }
-        }, 1000);
       }
     } catch (error: any) {
       // Manejo de errores más específico
@@ -284,55 +223,6 @@ export const Auth = () => {
       setLoading(false);
     }
   };
-
-  if (showMFASetup) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-card border-border">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-foreground">Configurar 2FA</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Escanea el código QR con Google Authenticator
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-center">
-              <img src={mfaQRCode} alt="QR Code" className="w-48 h-48" />
-            </div>
-            <div className="text-sm text-center text-muted-foreground">
-              <p>O ingresa manualmente este código:</p>
-              <code className="block mt-2 p-2 bg-muted rounded">{mfaSecret}</code>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Código de verificación</label>
-              <Input
-                type="text"
-                placeholder="000000"
-                value={mfaCode}
-                onChange={(e) => setMfaCode(e.target.value)}
-                maxLength={6}
-                className="bg-background border-border text-center text-lg tracking-widest"
-              />
-            </div>
-            <Button
-              onClick={handleVerifyMFASetup}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-              disabled={loading}
-            >
-              {loading ? "Verificando..." : "Verificar y Activar"}
-            </Button>
-            <Button
-              onClick={() => setShowMFASetup(false)}
-              variant="outline"
-              className="w-full"
-            >
-              Cancelar
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (showMFAVerify) {
     return (
