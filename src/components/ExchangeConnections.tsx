@@ -3,6 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Link2, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +22,12 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     bybit: false,
     telegram: false
   });
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedExchange, setSelectedExchange] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchConnections();
@@ -45,54 +54,49 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     }
   };
 
-  const handleConnect = async (exchange: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Debes iniciar sesión");
+  const handleConnect = (exchange: string) => {
+    if (exchange === "Telegram") {
+      toast.info("Próximamente: Conexión con Telegram Bot", {
+        description: "Te avisaremos cuando esté disponible"
+      });
+      return;
+    }
+    setSelectedExchange(exchange);
+    setDialogOpen(true);
+  };
+
+  const handleSaveKeys = async () => {
+    if (!selectedExchange) return;
+    if (!apiKey.trim() || !apiSecret.trim()) {
+      toast.error("API Key y Secret son obligatorias");
       return;
     }
 
-    // Check if connection exists
-    const { data: existing } = await supabase
-      .from('exchange_connections')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('exchange_name', exchange)
-      .maybeSingle();
-
-    if (existing) {
-      // Update existing connection
-      const { error } = await supabase
-        .from('exchange_connections')
-        .update({ 
-          is_connected: true, 
-          connected_at: new Date().toISOString() 
-        })
-        .eq('id', existing.id);
-
-      if (error) {
-        toast.error("Error al conectar");
+    setSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Debes iniciar sesión");
         return;
       }
-    } else {
-      // Create new connection
-      const { error } = await supabase
-        .from('exchange_connections')
-        .insert({
-          user_id: user.id,
-          exchange_name: exchange,
-          is_connected: true,
-          connected_at: new Date().toISOString()
-        });
 
-      if (error) {
-        toast.error("Error al conectar");
-        return;
-      }
+      const { error } = await supabase.functions.invoke('save-exchange-keys', {
+        body: { exchange: selectedExchange, apiKey, apiSecret }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Conectado a ${selectedExchange}`);
+      setDialogOpen(false);
+      setApiKey("");
+      setApiSecret("");
+      setSelectedExchange(null);
+      await fetchConnections();
+    } catch (e) {
+      toast.error("No se pudo guardar las credenciales");
+    } finally {
+      setSaving(false);
     }
-
-    toast.success(`Conectado a ${exchange}`);
-    await fetchConnections();
   };
 
   return (
@@ -189,6 +193,33 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-card text-foreground border-border">
+          <DialogHeader>
+            <DialogTitle>Conectar {selectedExchange}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Ingresa tus credenciales del exchange. Nunca almacenamos las claves en texto plano.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">API Key</Label>
+              <Input id="apiKey" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Tu API Key" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiSecret">API Secret</Label>
+              <Input id="apiSecret" type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} placeholder="••••••••" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveKeys} disabled={saving}>
+              {saving ? 'Conectando...' : 'Conectar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

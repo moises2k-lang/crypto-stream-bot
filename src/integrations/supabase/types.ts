@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      exchange_credentials: {
+        Row: {
+          api_key_ciphertext: string
+          api_key_iv: string
+          api_secret_ciphertext: string
+          api_secret_iv: string
+          created_at: string | null
+          exchange_name: string
+          id: string
+          salt: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          api_key_ciphertext: string
+          api_key_iv: string
+          api_secret_ciphertext: string
+          api_secret_iv: string
+          created_at?: string | null
+          exchange_name: string
+          id?: string
+          salt: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          api_key_ciphertext?: string
+          api_key_iv?: string
+          api_secret_ciphertext?: string
+          api_secret_iv?: string
+          created_at?: string | null
+          exchange_name?: string
+          id?: string
+          salt?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
