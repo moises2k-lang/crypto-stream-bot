@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link2, CheckCircle2, Send } from "lucide-react";
+import { Link2, CheckCircle2, Send, AlertCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,9 +31,15 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
   const [apiSecret, setApiSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [telegramConnecting, setTelegramConnecting] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<{
+    configured: boolean;
+    loading: boolean;
+    setting: boolean;
+  }>({ configured: false, loading: true, setting: false });
 
   useEffect(() => {
     fetchConnections();
+    checkWebhookStatus();
   }, []);
 
   const fetchConnections = async () => {
@@ -166,6 +172,44 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     }
   };
 
+  const checkWebhookStatus = async () => {
+    setWebhookStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke('check-telegram-webhook');
+
+      if (error) throw error;
+
+      setWebhookStatus({
+        configured: data.configured || false,
+        loading: false,
+        setting: false,
+      });
+    } catch (error) {
+      console.error('Error checking webhook:', error);
+      setWebhookStatus({ configured: false, loading: false, setting: false });
+    }
+  };
+
+  const handleSetupWebhook = async () => {
+    setWebhookStatus(prev => ({ ...prev, setting: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke('setup-telegram-webhook');
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success("Webhook configurado exitosamente");
+        await checkWebhookStatus();
+      } else {
+        throw new Error(data.error || "Error al configurar webhook");
+      }
+    } catch (error: any) {
+      console.error('Error setting up webhook:', error);
+      toast.error(error.message || "Error al configurar webhook");
+      setWebhookStatus(prev => ({ ...prev, setting: false }));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -276,11 +320,45 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             Recibe notificaciones de señales
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Webhook Status Indicator */}
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              {webhookStatus.loading ? (
+                <>
+                  <div className="h-2 w-2 rounded-full bg-muted-foreground animate-pulse" />
+                  <span className="text-sm text-muted-foreground">Verificando webhook...</span>
+                </>
+              ) : webhookStatus.configured ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  <span className="text-sm font-medium">Webhook configurado</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-warning" />
+                  <span className="text-sm font-medium text-warning">Webhook no configurado</span>
+                </>
+              )}
+            </div>
+            {!webhookStatus.configured && !webhookStatus.loading && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSetupWebhook}
+                disabled={webhookStatus.setting}
+              >
+                <Settings className="h-3 w-3 mr-1" />
+                {webhookStatus.setting ? "Configurando..." : "Configurar"}
+              </Button>
+            )}
+          </div>
+
+          {/* Telegram Connection Button */}
           <Button 
             onClick={handleTelegramConnect}
             className="w-full"
-            disabled={connections.telegram || telegramConnecting}
+            disabled={connections.telegram || telegramConnecting || !webhookStatus.configured}
           >
             {connections.telegram ? (
               <>
@@ -296,6 +374,12 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
               </>
             )}
           </Button>
+          
+          {!webhookStatus.configured && !webhookStatus.loading && (
+            <p className="text-xs text-muted-foreground text-center">
+              Configura el webhook antes de conectar Telegram
+            </p>
+          )}
         </CardContent>
       </Card>
 

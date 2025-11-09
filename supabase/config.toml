@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.disconnect-exchange]
 verify_jwt = true
+
+[functions.check-telegram-webhook]
+verify_jwt = true
+
+[functions.setup-telegram-webhook]
+verify_jwt = true
