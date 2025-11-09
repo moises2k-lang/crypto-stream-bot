@@ -70,12 +70,15 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         <CardHeader>
           <CardTitle className="text-foreground">Telegram</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Conecta tu grupo de señales
+            Recibe notificaciones de señales
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button 
-            onClick={() => toast.success("Conectado a Telegram")}
+            onClick={() => {
+              toast.success("Conectado a Telegram");
+              onConnectionChange(true);
+            }}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Send className="h-4 w-4 mr-2" />

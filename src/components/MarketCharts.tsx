@@ -29,9 +29,9 @@ export const MarketCharts = () => {
       );
       const priceData = await priceResponse.json();
 
-      // Fetch 24h chart data for each coin
+      // Fetch 24h chart data for each coin (without interval parameter to avoid 401 error)
       const chartPromises = COIN_IDS.map(coinId =>
-        fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1&interval=hourly`)
+        fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1`)
           .then(res => res.json())
       );
 
