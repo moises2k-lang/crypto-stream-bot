@@ -15,7 +15,17 @@ serve(async (req) => {
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
     
     if (!botToken) {
-      throw new Error('TELEGRAM_BOT_TOKEN no está configurado');
+      console.error('TELEGRAM_BOT_TOKEN no está configurado');
+      return new Response(
+        JSON.stringify({ 
+          configured: false,
+          error: 'Bot token no configurado'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
     }
 
     // Check webhook status
@@ -23,11 +33,21 @@ serve(async (req) => {
       `https://api.telegram.org/bot${botToken}/getWebhookInfo`
     );
 
-    if (!response.ok) {
-      throw new Error('Error al verificar webhook');
-    }
-
     const data = await response.json();
+
+    if (!data.ok) {
+      console.error('Error en respuesta de Telegram:', data);
+      return new Response(
+        JSON.stringify({ 
+          configured: false,
+          error: data.description || 'Error al verificar webhook'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
     
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/telegram-webhook`;
     const isConfigured = data.result?.url === webhookUrl;
@@ -50,12 +70,12 @@ serve(async (req) => {
     console.error('Error checking webhook:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Error desconocido',
         configured: false,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 200,
       }
     );
   }

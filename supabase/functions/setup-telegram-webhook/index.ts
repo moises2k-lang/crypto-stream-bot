@@ -37,12 +37,12 @@ serve(async (req) => {
       }
     );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.description || 'Error al configurar webhook');
-    }
-
     const data = await response.json();
+
+    if (!data.ok) {
+      console.error('Error al configurar webhook:', data);
+      throw new Error(data.description || 'Error al configurar webhook');
+    }
 
     console.log('Webhook configurado exitosamente:', data);
 
@@ -64,7 +64,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Error desconocido',
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
