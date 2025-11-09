@@ -171,6 +171,19 @@ export const Auth = () => {
         
         if (error) throw error;
 
+        // Log login activity
+        try {
+          await supabase.functions.invoke('log-login-activity', {
+            body: {
+              userAgent: navigator.userAgent,
+              ipAddress: 'Client IP' // IP will be captured server-side in production
+            }
+          });
+        } catch (logError) {
+          console.error('Error logging activity:', logError);
+          // Don't block login if logging fails
+        }
+
         // Check if user has MFA enabled
         const { data: mfaData } = await supabase.auth.mfa.listFactors();
         const hasMFA = mfaData?.all && mfaData.all.length > 0;

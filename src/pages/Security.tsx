@@ -7,8 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Shield, ShieldCheck, QrCode, Key } from "lucide-react";
+import { Shield, ShieldCheck, QrCode, Key, Monitor, Smartphone, Tablet, MapPin, Clock } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+interface LoginHistory {
+  id: string;
+  login_at: string;
+  ip_address: string | null;
+  device_info: string | null;
+  browser: string | null;
+  os: string | null;
+  country: string | null;
+  city: string | null;
+}
 
 const Security = () => {
   const navigate = useNavigate();
@@ -19,10 +33,12 @@ const Security = () => {
   const [mfaSecret, setMfaSecret] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [setupLoading, setSetupLoading] = useState(false);
+  const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
 
   useEffect(() => {
     checkAuth();
     checkMFAStatus();
+    fetchLoginHistory();
   }, []);
 
   const checkAuth = async () => {
@@ -30,6 +46,21 @@ const Security = () => {
     if (!user) {
       navigate('/');
       return;
+    }
+  };
+
+  const fetchLoginHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('login_history')
+        .select('*')
+        .order('login_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setLoginHistory(data || []);
+    } catch (error: any) {
+      console.error('Error fetching login history:', error);
     }
   };
 
@@ -285,6 +316,78 @@ const Security = () => {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Login History Section */}
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Clock className="h-6 w-6 text-primary" />
+              <CardTitle>Historial de Actividad</CardTitle>
+            </div>
+            <CardDescription>
+              Revisa los últimos inicios de sesión en tu cuenta
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loginHistory.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No hay historial de actividad reciente</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dispositivo</TableHead>
+                    <TableHead>Navegador</TableHead>
+                    <TableHead>Sistema</TableHead>
+                    <TableHead>Ubicación</TableHead>
+                    <TableHead>Fecha y Hora</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loginHistory.map((entry) => {
+                    const DeviceIcon = 
+                      entry.device_info === 'Mobile' ? Smartphone :
+                      entry.device_info === 'Tablet' ? Tablet :
+                      Monitor;
+
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <DeviceIcon className="h-4 w-4 text-muted-foreground" />
+                            <span>{entry.device_info || 'Desconocido'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{entry.browser || 'Desconocido'}</TableCell>
+                        <TableCell>{entry.os || 'Desconocido'}</TableCell>
+                        <TableCell>
+                          {entry.city && entry.country ? (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              <span>{entry.city}, {entry.country}</span>
+                            </div>
+                          ) : entry.ip_address ? (
+                            <span className="text-muted-foreground text-sm">{entry.ip_address}</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{format(new Date(entry.login_at), "d 'de' MMMM, yyyy", { locale: es })}</div>
+                            <div className="text-muted-foreground">{format(new Date(entry.login_at), 'HH:mm:ss')}</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </main>
