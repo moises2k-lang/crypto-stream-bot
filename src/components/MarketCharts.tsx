@@ -50,9 +50,9 @@ export const MarketCharts = () => {
             
             const tickerData = await tickerResponse.json();
             
-            // Get kline data from Binance Futures (1h intervals, last 24 hours)
+            // Get kline data from Binance Futures (1h intervals, last 72 hours)
             const klineResponse = await fetch(
-              `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1h&limit=24`
+              `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1h&limit=72`
             );
             
             if (!klineResponse.ok) {
@@ -68,10 +68,16 @@ export const MarketCharts = () => {
               volume: parseFloat(tickerData.volume),
               high24h: parseFloat(tickerData.highPrice),
               low24h: parseFloat(tickerData.lowPrice),
-              chartData: klineData.map((candle: any) => ({
-                time: new Date(candle[0]).getHours() + ':00',
-                price: parseFloat(candle[4]), // Close price
-              })),
+              chartData: klineData.map((candle: any) => {
+                const date = new Date(candle[0]);
+                const hours = date.getHours().toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                return {
+                  time: `${day}/${month} ${hours}:00`,
+                  price: parseFloat(candle[4]), // Close price
+                };
+              }),
             };
           } else {
             // Get 24h ticker data from Binance
@@ -85,9 +91,9 @@ export const MarketCharts = () => {
             
             const tickerData = await tickerResponse.json();
             
-            // Get kline/candlestick data for chart (1 hour intervals, last 24 hours)
+            // Get kline/candlestick data for chart (1 hour intervals, last 72 hours)
             const klineResponse = await fetch(
-              `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`
+              `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=72`
             );
             
             if (!klineResponse.ok) {
@@ -103,10 +109,16 @@ export const MarketCharts = () => {
               volume: parseFloat(tickerData.volume),
               high24h: parseFloat(tickerData.highPrice),
               low24h: parseFloat(tickerData.lowPrice),
-              chartData: klineData.map((candle: any) => ({
-                time: new Date(candle[0]).getHours() + ':00',
-                price: parseFloat(candle[4]), // Close price
-              })),
+              chartData: klineData.map((candle: any) => {
+                const date = new Date(candle[0]);
+                const hours = date.getHours().toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                return {
+                  time: `${day}/${month} ${hours}:00`,
+                  price: parseFloat(candle[4]), // Close price
+                };
+              }),
             };
           }
         } catch (error) {
@@ -216,7 +228,7 @@ export const MarketCharts = () => {
               Principales Mercados
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Gráficos en tiempo real de las últimas 24 horas
+              Gráficos en tiempo real de las últimas 72 horas
             </CardDescription>
           </div>
           <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as any)} className="w-auto">
@@ -342,10 +354,13 @@ export const MarketCharts = () => {
                     />
                     <XAxis 
                       dataKey="time" 
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                       tickLine={{ stroke: 'hsl(var(--border))' }}
                       axisLine={{ stroke: 'hsl(var(--border))' }}
-                      interval="preserveStartEnd"
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                      interval="preserveStart"
                     />
                     <YAxis 
                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
