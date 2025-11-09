@@ -86,6 +86,17 @@ const Security = () => {
   const handleEnrollMFA = async () => {
     setSetupLoading(true);
     try {
+      // First, check for existing unverified factors and remove them
+      const { data: existingFactors, error: listError } = await supabase.auth.mfa.listFactors();
+      if (listError) throw listError;
+
+      // Remove any unverified TOTP factors
+      const unverifiedFactors = existingFactors?.totp?.filter(f => f.status !== 'verified') || [];
+      for (const factor of unverifiedFactors) {
+        await supabase.auth.mfa.unenroll({ factorId: factor.id });
+      }
+
+      // Now enroll a new factor
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
       });
