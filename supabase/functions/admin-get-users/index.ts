@@ -12,7 +12,19 @@ serve(async (req) => {
   }
 
   try {
-    const { page = 1, pageSize = 10 } = await req.json().catch(() => ({}));
+    let page = 1;
+    let pageSize = 10;
+
+    // Accept pagination params from both GET query params and POST body
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      page = body.page || 1;
+      pageSize = body.pageSize || 10;
+    } else if (req.method === 'GET') {
+      const url = new URL(req.url);
+      page = parseInt(url.searchParams.get('page') || '1');
+      pageSize = parseInt(url.searchParams.get('pageSize') || '10');
+    }
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);

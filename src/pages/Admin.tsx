@@ -23,7 +23,7 @@ interface UserData {
     total_balance: number;
     today_pnl: number;
     win_rate: number;
-  }[];
+  } | null;
   user_roles: { role: string }[];
   trades_count: number;
   active_signals_count: number;
@@ -212,7 +212,7 @@ const Admin = () => {
               </TableHeader>
               <TableBody>
                 {users.map((user) => {
-                  const stats = user.user_stats?.[0];
+                  const stats = user.user_stats;
                   const role = user.user_roles?.[0]?.role || 'user';
                   const pnlPositive = (stats?.today_pnl || 0) >= 0;
 
