@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,53 @@ const authSchema = z.object({
     .max(100, "La contraseña es demasiado larga")
 });
 
+const RECAPTCHA_SITE_KEY = "6LfzfwcsAAAAAPzLJA1w-USCXdQjz-XEZ8VIC0ck";
+
+declare global {
+  interface Window {
+    grecaptcha: any;
+  }
+}
+
 export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+  const recaptchaRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Load reCAPTCHA script
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setRecaptchaLoaded(true);
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Render reCAPTCHA when loaded and in signup mode
+    if (recaptchaLoaded && !isLogin && window.grecaptcha) {
+      setTimeout(() => {
+        const container = document.getElementById('recaptcha-container');
+        if (container && container.children.length === 0) {
+          try {
+            recaptchaRef.current = window.grecaptcha.render('recaptcha-container', {
+              sitekey: RECAPTCHA_SITE_KEY,
+            });
+          } catch (e) {
+            console.error('Error rendering reCAPTCHA:', e);
+          }
+        }
+      }, 100);
+    }
+  }, [recaptchaLoaded, isLogin]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +90,33 @@ export const Auth = () => {
         if (error) throw error;
         toast.success("Sesión iniciada correctamente");
       } else {
+        // Verify reCAPTCHA for signup
+        if (!window.grecaptcha) {
+          toast.error("reCAPTCHA no está cargado");
+          setLoading(false);
+          return;
+        }
+
+        const recaptchaToken = window.grecaptcha.getResponse(recaptchaRef.current);
+        if (!recaptchaToken) {
+          toast.error("Por favor completa el reCAPTCHA");
+          setLoading(false);
+          return;
+        }
+
+        // Verify reCAPTCHA token with backend
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+          'verify-recaptcha',
+          { body: { token: recaptchaToken } }
+        );
+
+        if (verifyError || !verifyData?.success) {
+          toast.error("Verificación de reCAPTCHA fallida");
+          window.grecaptcha.reset(recaptchaRef.current);
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -70,6 +139,7 @@ export const Auth = () => {
         }
         
         toast.success("Cuenta creada correctamente");
+        window.grecaptcha.reset(recaptchaRef.current);
       }
     } catch (error: any) {
       // Manejo de errores más específico
@@ -79,6 +149,11 @@ export const Auth = () => {
         toast.error("Email o contraseña incorrectos");
       } else {
         toast.error(error.message || "Ocurrió un error");
+      }
+      
+      // Reset reCAPTCHA on error in signup mode
+      if (!isLogin && window.grecaptcha && recaptchaRef.current !== null) {
+        window.grecaptcha.reset(recaptchaRef.current);
       }
     } finally {
       setLoading(false);
@@ -112,6 +187,10 @@ export const Auth = () => {
                 className="bg-background border-border"
               />
             </div>
+            
+            {!isLogin && (
+              <div id="recaptcha-container" className="flex justify-center"></div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Contraseña</label>
               <Input
