@@ -50,24 +50,39 @@ serve(async (req) => {
       );
     }
 
-    // Get all users with their profiles, stats, and roles
+    // Get all profiles
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('*, user_stats(*), user_roles(role)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (profilesError) {
       throw profilesError;
     }
 
-    // Get trades count for each user
+    // Get all data for each user
     const usersWithData = await Promise.all(
       profiles.map(async (profile) => {
+        // Get user stats
+        const { data: stats } = await supabase
+          .from('user_stats')
+          .select('*')
+          .eq('user_id', profile.user_id)
+          .single();
+
+        // Get user roles
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', profile.user_id);
+
+        // Get trades count
         const { count: tradesCount } = await supabase
           .from('trades')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', profile.user_id);
 
+        // Get active signals count
         const { count: signalsCount } = await supabase
           .from('signals')
           .select('*', { count: 'exact', head: true })
@@ -76,6 +91,8 @@ serve(async (req) => {
 
         return {
           ...profile,
+          user_stats: stats,
+          user_roles: roles,
           trades_count: tradesCount || 0,
           active_signals_count: signalsCount || 0,
         };
