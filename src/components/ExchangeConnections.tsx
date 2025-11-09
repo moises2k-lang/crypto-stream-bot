@@ -36,11 +36,32 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     loading: boolean;
     setting: boolean;
   }>({ configured: false, loading: true, setting: false });
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    checkAdminRole();
     fetchConnections();
     checkWebhookStatus();
   }, []);
+
+  const checkAdminRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      setIsAdmin(!!roleData);
+    } catch (error) {
+      console.error('Error checking admin role:', error);
+      setIsAdmin(false);
+    }
+  };
 
   const fetchConnections = async () => {
     try {
@@ -321,44 +342,46 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Webhook Status Indicator */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2">
-              {webhookStatus.loading ? (
-                <>
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground animate-pulse" />
-                  <span className="text-sm text-muted-foreground">Verificando webhook...</span>
-                </>
-              ) : webhookStatus.configured ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium">Webhook configurado</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-4 w-4 text-warning" />
-                  <span className="text-sm font-medium text-warning">Webhook no configurado</span>
-                </>
+          {/* Webhook Status Indicator - Solo visible para administradores */}
+          {isAdmin && (
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                {webhookStatus.loading ? (
+                  <>
+                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-pulse" />
+                    <span className="text-sm text-muted-foreground">Verificando webhook...</span>
+                  </>
+                ) : webhookStatus.configured ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <span className="text-sm font-medium">Webhook configurado</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 text-warning" />
+                    <span className="text-sm font-medium text-warning">Webhook no configurado</span>
+                  </>
+                )}
+              </div>
+              {!webhookStatus.configured && !webhookStatus.loading && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSetupWebhook}
+                  disabled={webhookStatus.setting}
+                >
+                  <Settings className="h-3 w-3 mr-1" />
+                  {webhookStatus.setting ? "Configurando..." : "Configurar"}
+                </Button>
               )}
             </div>
-            {!webhookStatus.configured && !webhookStatus.loading && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSetupWebhook}
-                disabled={webhookStatus.setting}
-              >
-                <Settings className="h-3 w-3 mr-1" />
-                {webhookStatus.setting ? "Configurando..." : "Configurar"}
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* Telegram Connection Button */}
           <Button 
             onClick={handleTelegramConnect}
             className="w-full"
-            disabled={connections.telegram || telegramConnecting || !webhookStatus.configured}
+            disabled={connections.telegram || telegramConnecting || (!webhookStatus.configured && isAdmin)}
           >
             {connections.telegram ? (
               <>
@@ -375,7 +398,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             )}
           </Button>
           
-          {!webhookStatus.configured && !webhookStatus.loading && (
+          {isAdmin && !webhookStatus.configured && !webhookStatus.loading && (
             <p className="text-xs text-muted-foreground text-center">
               Configura el webhook antes de conectar Telegram
             </p>
