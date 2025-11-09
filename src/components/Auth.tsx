@@ -5,6 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { TrendingUp } from "lucide-react";
+import { z } from "zod";
+
+const authSchema = z.object({
+  email: z.string()
+    .trim()
+    .min(1, "El email es requerido")
+    .email("Ingresa un email válido")
+    .max(255, "El email es demasiado largo"),
+  password: z.string()
+    .min(6, "La contraseña debe tener al menos 6 caracteres")
+    .max(100, "La contraseña es demasiado larga")
+});
 
 export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,19 +26,30 @@ export const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar los datos del formulario
+    try {
+      authSchema.parse({ email: email.trim(), password });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
         if (error) throw error;
         toast.success("Sesión iniciada correctamente");
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`
@@ -37,7 +60,7 @@ export const Auth = () => {
         // Create user profile and stats
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('profiles').insert({ user_id: user.id, email });
+          await supabase.from('profiles').insert({ user_id: user.id, email: email.trim() });
           await supabase.from('user_stats').insert({ 
             user_id: user.id,
             total_balance: 0,
@@ -49,7 +72,14 @@ export const Auth = () => {
         toast.success("Cuenta creada correctamente");
       }
     } catch (error: any) {
-      toast.error(error.message);
+      // Manejo de errores más específico
+      if (error.message?.includes("already registered")) {
+        toast.error("Este email ya está registrado");
+      } else if (error.message?.includes("Invalid login credentials")) {
+        toast.error("Email o contraseña incorrectos");
+      } else {
+        toast.error(error.message || "Ocurrió un error");
+      }
     } finally {
       setLoading(false);
     }
