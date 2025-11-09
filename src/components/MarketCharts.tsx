@@ -81,8 +81,8 @@ export const MarketCharts = () => {
   useEffect(() => {
     fetchMarketData();
     
-    // Update every 60 seconds
-    const interval = setInterval(fetchMarketData, 60000);
+    // Update every 5 minutes to avoid rate limiting
+    const interval = setInterval(fetchMarketData, 300000);
     
     return () => clearInterval(interval);
   }, []);
