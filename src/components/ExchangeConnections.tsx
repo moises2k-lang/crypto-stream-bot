@@ -52,18 +52,47 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
       return;
     }
 
-    // For Telegram, show instructions
-    if (exchange === "Telegram") {
-      toast.info("Proximamente: Conexión con Telegram Bot", {
-        description: "Esta funcionalidad estará disponible pronto"
-      });
-      return;
+    // Check if connection exists
+    const { data: existing } = await supabase
+      .from('exchange_connections')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('exchange_name', exchange)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing connection
+      const { error } = await supabase
+        .from('exchange_connections')
+        .update({ 
+          is_connected: true, 
+          connected_at: new Date().toISOString() 
+        })
+        .eq('id', existing.id);
+
+      if (error) {
+        toast.error("Error al conectar");
+        return;
+      }
+    } else {
+      // Create new connection
+      const { error } = await supabase
+        .from('exchange_connections')
+        .insert({
+          user_id: user.id,
+          exchange_name: exchange,
+          is_connected: true,
+          connected_at: new Date().toISOString()
+        });
+
+      if (error) {
+        toast.error("Error al conectar");
+        return;
+      }
     }
 
-    // For exchanges, show API key requirement
-    toast.info(`Conectar ${exchange}`, {
-      description: "Proximamente: Ingresa tus API keys para conectar"
-    });
+    toast.success(`Conectado a ${exchange}`);
+    await fetchConnections();
   };
 
   return (
@@ -94,9 +123,19 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
               <Button 
                 onClick={() => handleConnect("Binance")}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={connections.binance}
               >
-                <Link2 className="h-4 w-4 mr-2" />
-                Conectar Binance
+                {connections.binance ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Conectado
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Conectar Binance
+                  </>
+                )}
               </Button>
             </TabsContent>
             
@@ -104,9 +143,19 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
               <Button 
                 onClick={() => handleConnect("Bybit")}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={connections.bybit}
               >
-                <Link2 className="h-4 w-4 mr-2" />
-                Conectar Bybit
+                {connections.bybit ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Conectado
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Conectar Bybit
+                  </>
+                )}
               </Button>
             </TabsContent>
           </Tabs>
@@ -124,9 +173,19 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           <Button 
             onClick={() => handleConnect("Telegram")}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+            disabled={connections.telegram}
           >
-            <Send className="h-4 w-4 mr-2" />
-            Conectar Telegram
+            {connections.telegram ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Conectado
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Conectar Telegram
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
