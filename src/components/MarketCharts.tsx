@@ -26,11 +26,11 @@ export const MarketCharts = () => {
       // Fetch all market data from Binance API
       const marketPromises = SYMBOLS.map(async (symbol) => {
         try {
-          // Use KuCoin API for XMR, Binance for others
+          // Use Binance Futures API for XMR, Binance Spot for others
           if (symbol === 'XMRUSDT') {
-            // Get 24h ticker data from KuCoin
+            // Get 24h ticker data from Binance Futures
             const tickerResponse = await fetch(
-              `https://api.kucoin.com/api/v1/market/stats?symbol=XMR-USDT`
+              `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}`
             );
             
             if (!tickerResponse.ok) {
@@ -38,11 +38,10 @@ export const MarketCharts = () => {
             }
             
             const tickerData = await tickerResponse.json();
-            const ticker = tickerData.data;
             
-            // Get kline data from KuCoin (1hour intervals, last 24 hours)
+            // Get kline data from Binance Futures (1h intervals, last 24 hours)
             const klineResponse = await fetch(
-              `https://api.kucoin.com/api/v1/market/candles?type=1hour&symbol=XMR-USDT&startAt=${Math.floor(Date.now() / 1000) - 86400}&endAt=${Math.floor(Date.now() / 1000)}`
+              `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1h&limit=24`
             );
             
             if (!klineResponse.ok) {
@@ -53,10 +52,10 @@ export const MarketCharts = () => {
             
             return {
               symbol,
-              price: parseFloat(ticker.last),
-              change: parseFloat(ticker.changeRate) * 100, // KuCoin returns decimal, convert to percentage
-              chartData: klineData.data.reverse().map((candle: any) => ({
-                time: new Date(parseInt(candle[0]) * 1000).getHours() + ':00',
+              price: parseFloat(tickerData.lastPrice),
+              change: parseFloat(tickerData.priceChangePercent),
+              chartData: klineData.map((candle: any) => ({
+                time: new Date(candle[0]).getHours() + ':00',
                 price: parseFloat(candle[4]), // Close price
               })),
             };
