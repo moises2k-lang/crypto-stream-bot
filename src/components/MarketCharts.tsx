@@ -26,37 +26,73 @@ export const MarketCharts = () => {
       // Fetch all market data from Binance API
       const marketPromises = SYMBOLS.map(async (symbol) => {
         try {
-          // Get 24h ticker data (includes price and 24h change)
-          const tickerResponse = await fetch(
-            `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
-          );
-          
-          if (!tickerResponse.ok) {
-            throw new Error(`Failed to fetch ticker for ${symbol}`);
+          // Use Bybit API for XMR, Binance for others
+          if (symbol === 'XMRUSDT') {
+            // Get 24h ticker data from Bybit
+            const tickerResponse = await fetch(
+              `https://api.bybit.com/v5/market/tickers?category=spot&symbol=${symbol}`
+            );
+            
+            if (!tickerResponse.ok) {
+              throw new Error(`Failed to fetch ticker for ${symbol}`);
+            }
+            
+            const tickerData = await tickerResponse.json();
+            const ticker = tickerData.result.list[0];
+            
+            // Get kline data from Bybit (60 = 1 hour intervals, last 24 hours)
+            const klineResponse = await fetch(
+              `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=60&limit=24`
+            );
+            
+            if (!klineResponse.ok) {
+              throw new Error(`Failed to fetch klines for ${symbol}`);
+            }
+            
+            const klineData = await klineResponse.json();
+            
+            return {
+              symbol,
+              price: parseFloat(ticker.lastPrice),
+              change: parseFloat(ticker.price24hPcnt) * 100, // Bybit returns decimal, convert to percentage
+              chartData: klineData.result.list.reverse().map((candle: any) => ({
+                time: new Date(parseInt(candle[0])).getHours() + ':00',
+                price: parseFloat(candle[4]), // Close price
+              })),
+            };
+          } else {
+            // Get 24h ticker data from Binance
+            const tickerResponse = await fetch(
+              `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
+            );
+            
+            if (!tickerResponse.ok) {
+              throw new Error(`Failed to fetch ticker for ${symbol}`);
+            }
+            
+            const tickerData = await tickerResponse.json();
+            
+            // Get kline/candlestick data for chart (1 hour intervals, last 24 hours)
+            const klineResponse = await fetch(
+              `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`
+            );
+            
+            if (!klineResponse.ok) {
+              throw new Error(`Failed to fetch klines for ${symbol}`);
+            }
+            
+            const klineData = await klineResponse.json();
+            
+            return {
+              symbol,
+              price: parseFloat(tickerData.lastPrice),
+              change: parseFloat(tickerData.priceChangePercent),
+              chartData: klineData.map((candle: any) => ({
+                time: new Date(candle[0]).getHours() + ':00',
+                price: parseFloat(candle[4]), // Close price
+              })),
+            };
           }
-          
-          const tickerData = await tickerResponse.json();
-          
-          // Get kline/candlestick data for chart (1 hour intervals, last 24 hours)
-          const klineResponse = await fetch(
-            `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`
-          );
-          
-          if (!klineResponse.ok) {
-            throw new Error(`Failed to fetch klines for ${symbol}`);
-          }
-          
-          const klineData = await klineResponse.json();
-          
-          return {
-            symbol,
-            price: parseFloat(tickerData.lastPrice),
-            change: parseFloat(tickerData.priceChangePercent),
-            chartData: klineData.map((candle: any) => ({
-              time: new Date(candle[0]).getHours() + ':00',
-              price: parseFloat(candle[4]), // Close price
-            })),
-          };
         } catch (error) {
           console.error(`Error fetching data for ${symbol}:`, error);
           return {
