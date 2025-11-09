@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const SignalSchema = z.object({
+  pair: z.string().trim().min(3, "Pair must be at least 3 characters").max(20, "Pair must be less than 20 characters").regex(/^[A-Z0-9\/]+$/, "Pair must contain only uppercase letters, numbers, and /"),
+  type: z.enum(['LONG', 'SHORT'], { errorMap: () => ({ message: "Type must be either LONG or SHORT" }) }),
+  entry: z.string().trim().min(1).max(20).regex(/^[0-9.]+$/, "Entry must be a valid number"),
+  target: z.string().trim().min(1).max(20).regex(/^[0-9.]+$/, "Target must be a valid number"),
+  stop: z.string().trim().min(1).max(20).regex(/^[0-9.]+$/, "Stop must be a valid number")
+});
 
 interface SignalData {
   pair: string;
@@ -19,6 +30,36 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401
+        }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401
+        }
+      );
+    }
+
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
     const chatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID');
 
@@ -26,7 +67,27 @@ serve(async (req) => {
       throw new Error('Telegram credentials not configured');
     }
 
-    const { pair, type, entry, target, stop }: SignalData = await req.json();
+    const requestData = await req.json();
+    
+    // Validate input data
+    const validationResult = SignalSchema.safeParse(requestData);
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid input data', 
+          details: validationResult.error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        }
+      );
+    }
+
+    const { pair, type, entry, target, stop }: SignalData = validationResult.data;
 
     const emoji = type === 'LONG' ? '🟢' : '🔴';
     const message = `

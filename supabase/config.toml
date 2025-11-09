@@ -1,7 +1,7 @@
 project_id = "vagvtlmvltqsudaxulvl"
 
 [functions.send-telegram-signal]
-verify_jwt = false
+verify_jwt = true
 
 [functions.telegram-webhook]
 verify_jwt = false
