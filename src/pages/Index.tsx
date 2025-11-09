@@ -9,8 +9,10 @@ import { NotificationsHistory } from "@/components/NotificationsHistory";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTranslation } from "react-i18next";
 
 const Index = () => {
+  const { t } = useTranslation();
   const [isConnected, setIsConnected] = useState(false);
   const [user, setUser] = useState<any>(null);
 
@@ -45,8 +47,8 @@ const Index = () => {
             
             <Tabs defaultValue="signals" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signals">Operaciones Activas</TabsTrigger>
-                <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+                <TabsTrigger value="signals">{t('tabs.signals')}</TabsTrigger>
+                <TabsTrigger value="notifications">{t('tabs.notifications')}</TabsTrigger>
               </TabsList>
               <TabsContent value="signals" className="mt-6">
                 <SignalsPanel />

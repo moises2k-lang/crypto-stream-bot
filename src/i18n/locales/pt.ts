@@ -1,0 +1,193 @@
+export const pt = {
+  // Header
+  header: {
+    title: "TradePro",
+    subtitle: "Plataforma de Negociação Automatizada",
+    myAccount: "Minha Conta",
+    dashboard: "Painel",
+    security: "Segurança",
+    adminPanel: "Painel Admin",
+    logout: "Sair",
+    menu: "Menu",
+    user: "Usuário",
+    admin: "Administrador",
+  },
+  
+  // Stats Grid
+  stats: {
+    totalBalance: "Saldo Total",
+    todayPnL: "P&L Hoje",
+    winRate: "Taxa de Sucesso",
+  },
+  
+  // Market Charts
+  markets: {
+    title: "Principais Mercados",
+    subtitle: "Gráficos em tempo real",
+    volume24h: "Volume 24h",
+    high24h: "Máx 24h",
+    low24h: "Mín 24h",
+    price: "Preço",
+    timeframes: {
+      "24h": "24 Horas",
+      "7d": "7 Dias",
+      "1M": "1 Mês",
+      "1Y": "1 Ano",
+    },
+  },
+  
+  // Signals Panel
+  signals: {
+    title: "Operações Ativas",
+    subtitle: "Posições abertas atualmente",
+    active: "ativas",
+    noSignals: "Não há operações ativas",
+    entry: "Entrada",
+    target: "Alvo",
+    stopLoss: "Stop Loss",
+    close: "Fechar",
+    telegram: "Telegram",
+    notifications: {
+      on: "Notif. ON",
+      off: "Notif. OFF",
+    },
+    status: {
+      active: "Ativa",
+    },
+    messages: {
+      closedSuccess: "Posição fechada",
+      closedError: "Erro ao fechar posição",
+      sendingToTelegram: "Enviando sinal para Telegram...",
+      sentToTelegram: "Sinal enviado para Telegram com sucesso",
+      errorSendingToTelegram: "Erro ao enviar sinal para Telegram",
+      newSignal: "Novo sinal",
+      notificationsEnabled: "Notificações ativadas",
+      notificationsDenied: "Permissões de notificação negadas",
+      notificationsDisabled: "Notificações desativadas",
+      notSupported: "Seu navegador não suporta notificações",
+    },
+  },
+  
+  // Notifications History
+  notifications: {
+    title: "Histórico de Notificações",
+    subtitle: "Revise todos os seus alertas passados",
+    new: "novas",
+    markAll: "Marcar todas",
+    clear: "Limpar",
+    noNotifications: "Não há notificações",
+    markedAsRead: "Todas as notificações marcadas como lidas",
+    deleted: "Notificação excluída",
+    cleared: "Histórico limpo",
+    errorMarkingAsRead: "Erro ao marcar como lida",
+    errorDeleting: "Erro ao excluir notificação",
+    errorClearing: "Erro ao limpar histórico",
+  },
+  
+  // Trades History
+  trades: {
+    title: "Histórico de Operações",
+    subtitle: "Últimas operações fechadas",
+    noTrades: "Não há histórico de operações",
+    pair: "Par",
+    type: "Tipo",
+    entry: "Entrada",
+    exit: "Saída",
+    profit: "Lucro",
+    status: "Status",
+    statuses: {
+      win: "Ganho",
+      loss: "Perda",
+    },
+  },
+  
+  // Exchange Connections
+  exchange: {
+    title: "Conexões de Exchange",
+    subtitle: "Gerencie suas contas de negociação",
+    binance: "Binance",
+    connect: "Conectar Exchange",
+    connected: "Conectado",
+    disconnect: "Desconectar",
+    apiKey: "Chave API",
+    apiSecret: "Segredo API (Privado)",
+    preview: "Pré-visualização",
+    save: "Salvar",
+    cancel: "Cancelar",
+    telegram: {
+      title: "Telegram",
+      subtitle: "Receba notificações de sinais",
+      connect: "Conectar Telegram",
+      connected: "Telegram conectado",
+      disconnect: "Desconectar",
+      username: "Usuário",
+      webhook: {
+        notConfigured: "Webhook não configurado",
+        configuring: "Configurando...",
+        configure: "Configurar",
+        checking: "Verificando webhook...",
+      },
+    },
+    messages: {
+      connected: "Exchange conectado com sucesso",
+      disconnected: "Exchange desconectado",
+      error: "Erro ao conectar exchange",
+      errorDisconnecting: "Erro ao desconectar exchange",
+      fillAllFields: "Por favor preencha todos os campos",
+      telegramConnected: "Telegram conectado com sucesso",
+      telegramDisconnected: "Telegram desconectado",
+      errorTelegram: "Erro ao processar conexão do Telegram",
+    },
+  },
+  
+  // Security Page
+  security: {
+    title: "Configurações de Segurança",
+    mfa: {
+      title: "Autenticação de Dois Fatores (2FA)",
+      subtitle: "Adicione uma camada extra de segurança à sua conta",
+      enabled: "2FA Ativado",
+      disabled: "2FA Desativado",
+      enable: "Ativar 2FA",
+      disable: "Desativar 2FA",
+      scan: "Escaneie este código QR com Google Authenticator",
+      verify: "Verificar código",
+      code: "Código de 6 dígitos",
+      cancel: "Cancelar",
+      messages: {
+        enabled: "2FA ativado com sucesso",
+        disabled: "2FA desativado",
+        invalidCode: "Código inválido",
+        error: "Erro ao configurar 2FA",
+        errorDisabling: "Erro ao desativar 2FA",
+      },
+    },
+    loginHistory: {
+      title: "Histórico de Acessos",
+      subtitle: "Revise a atividade recente da sua conta",
+      noHistory: "Não há histórico de acessos",
+      successful: "Acesso bem-sucedido",
+      failed: "Tentativa falhada",
+      from: "de",
+    },
+  },
+  
+  // Tabs
+  tabs: {
+    signals: "Operações Ativas",
+    notifications: "Notificações",
+  },
+  
+  // Common
+  common: {
+    loading: "Carregando...",
+    error: "Erro",
+    success: "Sucesso",
+    save: "Salvar",
+    cancel: "Cancelar",
+    delete: "Excluir",
+    edit: "Editar",
+    close: "Fechar",
+    confirm: "Confirmar",
+  },
+};

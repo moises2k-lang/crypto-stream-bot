@@ -20,9 +20,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 export const DashboardHeader = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -49,9 +52,9 @@ export const DashboardHeader = () => {
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      toast.error("Error al cerrar sesión");
+      toast.error(t('header.logout'));
     } else {
-      toast.success("Sesión cerrada");
+      toast.success(t('header.logout'));
       navigate('/');
     }
   };
@@ -65,12 +68,14 @@ export const DashboardHeader = () => {
               <TrendingUp className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">TradePro</h1>
-              <p className="text-xs text-muted-foreground">Automated Trading Platform</p>
+              <h1 className="text-xl font-bold text-foreground">{t('header.title')}</h1>
+              <p className="text-xs text-muted-foreground">{t('header.subtitle')}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            
             {/* Desktop Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -83,29 +88,29 @@ export const DashboardHeader = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-background z-50">
-                <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('header.myAccount')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/')}>
                   <Home className="mr-2 h-4 w-4" />
-                  Dashboard
+                  {t('header.dashboard')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/security')}>
                   <Settings className="mr-2 h-4 w-4" />
-                  Seguridad
+                  {t('header.security')}
                 </DropdownMenuItem>
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/admin')}>
                       <Shield className="mr-2 h-4 w-4" />
-                      Panel de Admin
+                      {t('header.adminPanel')}
                     </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Cerrar Sesión
+                  {t('header.logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -119,7 +124,7 @@ export const DashboardHeader = () => {
               </SheetTrigger>
               <SheetContent side="right" className="bg-background z-50">
                 <SheetHeader>
-                  <SheetTitle>Menú</SheetTitle>
+                  <SheetTitle>{t('header.menu')}</SheetTitle>
                 </SheetHeader>
                 <div className="flex flex-col gap-4 mt-8">
                   <div className="flex items-center gap-3 pb-4 border-b">
@@ -131,7 +136,7 @@ export const DashboardHeader = () => {
                     <div>
                       <p className="font-medium">{userEmail}</p>
                       <p className="text-sm text-muted-foreground">
-                        {isAdmin ? 'Administrador' : 'Usuario'}
+                        {isAdmin ? t('header.admin') : t('header.user')}
                       </p>
                     </div>
                   </div>
@@ -145,7 +150,7 @@ export const DashboardHeader = () => {
                     }}
                   >
                     <Home className="mr-2 h-4 w-4" />
-                    Dashboard
+                    {t('header.dashboard')}
                   </Button>
 
                   <Button
@@ -157,7 +162,7 @@ export const DashboardHeader = () => {
                     }}
                   >
                     <Settings className="mr-2 h-4 w-4" />
-                    Seguridad
+                    {t('header.security')}
                   </Button>
 
                   {isAdmin && (
@@ -170,7 +175,7 @@ export const DashboardHeader = () => {
                       }}
                     >
                       <Shield className="mr-2 h-4 w-4" />
-                      Panel de Admin
+                      {t('header.adminPanel')}
                     </Button>
                   )}
 
@@ -184,7 +189,7 @@ export const DashboardHeader = () => {
                       }}
                     >
                       <LogOut className="mr-2 h-4 w-4" />
-                      Cerrar Sesión
+                      {t('header.logout')}
                     </Button>
                   </div>
                 </div>
