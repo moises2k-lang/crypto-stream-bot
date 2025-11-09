@@ -27,6 +27,11 @@ export const MarketCharts = () => {
       const priceResponse = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${COIN_IDS.join(',')}&vs_currencies=usd&include_24hr_change=true`
       );
+      
+      if (!priceResponse.ok) {
+        throw new Error(`HTTP error! status: ${priceResponse.status}`);
+      }
+      
       const priceData = await priceResponse.json();
 
       // Fetch 24h chart data for each coin (without interval parameter to avoid 401 error)
@@ -66,7 +71,7 @@ export const MarketCharts = () => {
       console.error('Error fetching market data:', error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los datos del mercado",
+        description: "No se pudieron obtener datos de mercado en tiempo real. Por favor, intenta de nuevo más tarde.",
         variant: "destructive",
       });
       setIsLoading(false);

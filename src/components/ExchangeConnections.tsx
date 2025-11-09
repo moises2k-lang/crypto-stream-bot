@@ -53,12 +53,18 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     }
 
     // Check if connection exists
-    const { data: existing } = await supabase
+    const { data: existing, error: fetchError } = await supabase
       .from('exchange_connections')
       .select('*')
       .eq('user_id', user.id)
       .eq('exchange_name', exchange)
-      .single();
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Error fetching connection:', fetchError);
+      toast.error("Error al verificar conexión");
+      return;
+    }
 
     if (existing) {
       // Update existing connection
@@ -71,6 +77,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         .eq('id', existing.id);
 
       if (error) {
+        console.error('Error updating connection:', error);
         toast.error("Error al conectar");
         return;
       }
@@ -86,6 +93,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         });
 
       if (error) {
+        console.error('Error creating connection:', error);
         toast.error("Error al conectar");
         return;
       }
