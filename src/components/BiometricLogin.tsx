@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBiometric } from '@/hooks/useBiometric';
-import { useWebAuthn } from '@/hooks/useWebAuthn';
 import { supabase } from '@/integrations/supabase/client';
 import { Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,71 +9,40 @@ import { Capacitor } from '@capacitor/core';
 
 export const BiometricLogin = () => {
   const isNative = Capacitor.isNativePlatform();
-  const biometric = useBiometric();
-  const webauthn = useWebAuthn();
-  
+  const { isAvailable, authenticate } = useBiometric();
   const [hasCredentials, setHasCredentials] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     checkStoredCredentials();
   }, []);
 
   const checkStoredCredentials = () => {
-    if (isNative) {
-      const stored = localStorage.getItem('biometric_enabled');
-      setHasCredentials(stored === 'true');
-    } else {
-      setHasCredentials(webauthn.hasCredential);
-      const email = localStorage.getItem('webauthn_email');
-      if (email) setUserEmail(email);
-    }
+    const stored = localStorage.getItem('biometric_enabled');
+    setHasCredentials(stored === 'true');
   };
 
   const handleBiometricLogin = async () => {
-    if (isNative) {
-      const success = await biometric.authenticate();
-      if (success) {
-        const session = await supabase.auth.getSession();
-        if (session.data.session) {
-          toast.success('Sesión iniciada con huella digital');
-          window.location.href = '/';
-        }
-      }
-    } else {
-      const success = await webauthn.authenticate();
-      if (success) {
+    const success = await authenticate();
+    if (success) {
+      const session = await supabase.auth.getSession();
+      if (session.data.session) {
+        toast.success('Sesión iniciada con huella digital');
         window.location.href = '/';
       }
     }
   };
 
   const enableBiometric = async () => {
-    if (isNative) {
-      const success = await biometric.authenticate();
-      if (success) {
-        localStorage.setItem('biometric_enabled', 'true');
-        setHasCredentials(true);
-        toast.success('Huella digital configurada');
-      }
-    } else {
-      // Para WebAuthn, necesitamos el email del usuario
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        const success = await webauthn.register(user.email);
-        if (success) {
-          setHasCredentials(true);
-          setUserEmail(user.email);
-        }
-      } else {
-        toast.error('Inicia sesión primero para configurar biometría');
-      }
+    const success = await authenticate();
+    if (success) {
+      localStorage.setItem('biometric_enabled', 'true');
+      setHasCredentials(true);
+      toast.success('Huella digital configurada');
     }
   };
 
-  const isAvailable = isNative ? biometric.isAvailable : webauthn.isAvailable;
-
-  if (!isAvailable) {
+  // Solo mostrar en app nativa
+  if (!isNative || !isAvailable) {
     return null;
   }
 
@@ -83,13 +51,10 @@ export const BiometricLogin = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Fingerprint className="h-5 w-5" />
-          {isNative ? 'Inicio con Huella Digital' : 'Inicio Biométrico'}
+          Inicio con Huella Digital
         </CardTitle>
         <CardDescription>
-          {isNative 
-            ? 'Accede rápidamente con tu huella digital'
-            : 'Usa Windows Hello, Face ID, Touch ID o huella'
-          }
+          Accede rápidamente con tu huella digital
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -100,7 +65,7 @@ export const BiometricLogin = () => {
             variant="default"
           >
             <Fingerprint className="mr-2 h-4 w-4" />
-            {isNative ? 'Iniciar con Huella' : 'Iniciar con Biometría'}
+            Iniciar con Huella
           </Button>
         ) : (
           <Button 
@@ -109,7 +74,7 @@ export const BiometricLogin = () => {
             variant="outline"
           >
             <Fingerprint className="mr-2 h-4 w-4" />
-            {isNative ? 'Activar Huella Digital' : 'Activar Autenticación Biométrica'}
+            Activar Huella Digital
           </Button>
         )}
       </CardContent>
