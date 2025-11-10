@@ -37,6 +37,8 @@ const Security = () => {
   const [setupLoading, setSetupLoading] = useState(false);
   const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
   const [pendingFactorId, setPendingFactorId] = useState<string | null>(null);
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
 
   useEffect(() => {
     checkAuth();
@@ -159,18 +161,42 @@ const Security = () => {
   };
 
   const handleDisableMFA = async () => {
-    if (!confirm("¿Estás seguro de que deseas desactivar 2FA? Esto reducirá la seguridad de tu cuenta.")) {
+    if (!disableCode || disableCode.length !== 6) {
+      toast.error("Ingresa el código de 6 dígitos");
       return;
     }
 
     setSetupLoading(true);
     try {
-      const { data, error } = await supabase.auth.mfa.listFactors();
-      if (error) throw error;
+      // Get current factors
+      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
 
-      const verifiedFactors = data?.totp?.filter(f => f.status === 'verified') || [];
+      const verifiedFactors = factorsData?.totp?.filter(f => f.status === 'verified') || [];
       
-      // Unenroll all verified factors
+      if (verifiedFactors.length === 0) {
+        toast.error("No hay factores 2FA para desactivar");
+        return;
+      }
+
+      const factorId = verifiedFactors[0].id;
+
+      // First verify the MFA code to elevate to AAL2
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ 
+        factorId 
+      });
+      
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId: challengeData.id,
+        code: disableCode,
+      });
+
+      if (verifyError) throw verifyError;
+
+      // Now we're at AAL2, we can unenroll
       for (const factor of verifiedFactors) {
         const { error: unenrollError } = await supabase.auth.mfa.unenroll({
           factorId: factor.id,
@@ -180,10 +206,12 @@ const Security = () => {
       }
 
       toast.success("2FA desactivado correctamente");
+      setShowDisableDialog(false);
+      setDisableCode("");
       checkMFAStatus();
     } catch (error: any) {
       console.error('Error disabling MFA:', error);
-      toast.error(error.message || "Error al desactivar 2FA");
+      toast.error(error.message || "Código incorrecto o error al desactivar 2FA");
     } finally {
       setSetupLoading(false);
     }
@@ -315,7 +343,7 @@ const Security = () => {
                       </div>
                     )}
 
-                    {mfaEnabled && (
+                    {mfaEnabled && !showDisableDialog && (
                       <div className="space-y-4">
                         <div className="bg-success/10 border border-success/20 rounded-lg p-4">
                           <div className="flex items-center gap-2 text-success mb-2">
@@ -329,11 +357,53 @@ const Security = () => {
                         </div>
                         <Button 
                           variant="destructive" 
-                          onClick={handleDisableMFA}
+                          onClick={() => setShowDisableDialog(true)}
                           disabled={setupLoading}
                         >
                           <Key className="h-4 w-4 mr-2" />
                           Desactivar 2FA
+                        </Button>
+                      </div>
+                    )}
+
+                    {mfaEnabled && showDisableDialog && (
+                      <div className="space-y-4">
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                          <h4 className="font-medium mb-2 text-destructive">Verificación requerida</h4>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Para desactivar 2FA, primero debes verificar tu identidad ingresando el código actual de Google Authenticator.
+                          </p>
+                          <div>
+                            <Label htmlFor="disableCode">Código de Google Authenticator</Label>
+                            <div className="flex gap-2 mt-2">
+                              <Input
+                                id="disableCode"
+                                type="text"
+                                placeholder="000000"
+                                value={disableCode}
+                                onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                maxLength={6}
+                                className="font-mono text-center text-lg tracking-widest"
+                              />
+                              <Button 
+                                variant="destructive"
+                                onClick={handleDisableMFA} 
+                                disabled={setupLoading || disableCode.length !== 6}
+                              >
+                                Desactivar
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setShowDisableDialog(false);
+                            setDisableCode("");
+                          }}
+                          className="w-full sm:w-auto"
+                        >
+                          Cancelar
                         </Button>
                       </div>
                     )}
