@@ -43,12 +43,52 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Check for free trial first
+    const { data: trialData } = await supabaseClient
+      .from('free_trials')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (trialData && trialData.is_active && trialData.expires_at) {
+      const expiresAt = new Date(trialData.expires_at);
+      const now = new Date();
+      
+      if (expiresAt > now) {
+        logStep("Active free trial found", { expiresAt: trialData.expires_at });
+        return new Response(JSON.stringify({
+          subscribed: true,
+          is_trial: true,
+          trial_expires_at: trialData.expires_at,
+          plan_name: "Prueba Gratis 3 Días",
+          subscription_end: trialData.expires_at
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      } else {
+        // Trial expired, deactivate it
+        await supabaseClient
+          .from('free_trials')
+          .update({ is_active: false })
+          .eq('user_id', user.id);
+        logStep("Trial expired, deactivated");
+      }
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" as any });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     
     if (customers.data.length === 0) {
-      logStep("No customer found, returning unsubscribed state");
-      return new Response(JSON.stringify({ subscribed: false }), {
+      logStep("No customer found, checking if trial available");
+      
+      // Check if user can still use trial
+      const canUseTrial = trialData && !trialData.has_used_trial;
+      
+      return new Response(JSON.stringify({ 
+        subscribed: false,
+        can_use_trial: canUseTrial
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Check, CreditCard, Loader2, Calendar, Crown } from "lucide-react";
+import { Check, CreditCard, Loader2, Calendar, Crown, Gift } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -189,14 +189,20 @@ const Subscriptions = () => {
         </div>
 
         {subscription?.subscribed && (
-          <Card className="mb-8 border-primary/50 bg-primary/5">
+          <Card className={`mb-8 ${subscription.is_trial ? 'border-accent/50 bg-accent/5' : 'border-primary/50 bg-primary/5'}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-primary" />
-                  <CardTitle>Suscripción Activa</CardTitle>
+                  {subscription.is_trial ? (
+                    <Gift className="h-5 w-5 text-accent" />
+                  ) : (
+                    <Crown className="h-5 w-5 text-primary" />
+                  )}
+                  <CardTitle>{subscription.is_trial ? 'Prueba Gratis Activa' : 'Suscripción Activa'}</CardTitle>
                 </div>
-                <Badge variant="default">Activo</Badge>
+                <Badge variant={subscription.is_trial ? "secondary" : "default"}>
+                  {subscription.is_trial ? 'Prueba' : 'Activo'}
+                </Badge>
               </div>
               <CardDescription>
                 Plan actual: <strong>{subscription.plan_name}</strong>
@@ -206,13 +212,40 @@ const Subscriptions = () => {
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  Renovación: {format(new Date(subscription.subscription_end), "d 'de' MMMM, yyyy", { locale: es })}
+                  {subscription.is_trial ? 'Termina' : 'Renovación'}: {format(new Date(subscription.subscription_end), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
                 </span>
               </div>
-              <Button onClick={handleManageSubscription} variant="outline">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Administrar Suscripción
-              </Button>
+              {subscription.is_trial && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Disfruta de 3 días gratis con todas las funciones. Suscríbete antes de que termine para continuar sin interrupciones.
+                </p>
+              )}
+              {!subscription.is_trial && (
+                <Button onClick={handleManageSubscription} variant="outline">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Administrar Suscripción
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {!subscription?.subscribed && subscription?.can_use_trial && (
+          <Card className="mb-8 border-accent/50 bg-gradient-to-r from-accent/10 to-primary/10">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-accent" />
+                <CardTitle>¡Prueba Gratis Disponible!</CardTitle>
+              </div>
+              <CardDescription>
+                Conecta tu primera exchange para activar 3 días de acceso completo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Tu prueba gratis comenzará automáticamente cuando conectes tu primera exchange. 
+                No necesitas tarjeta de crédito. 
+              </p>
             </CardContent>
           </Card>
         )}
@@ -287,6 +320,12 @@ const Subscriptions = () => {
             <CardTitle>Preguntas Frecuentes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-1">¿Cómo funciona la prueba gratis?</h3>
+              <p className="text-sm text-muted-foreground">
+                Nuevos usuarios obtienen 3 días de prueba gratis sin necesidad de tarjeta. La prueba inicia automáticamente cuando conectas tu primera exchange.
+              </p>
+            </div>
             <div>
               <h3 className="font-semibold mb-1">¿Cómo funciona la suscripción?</h3>
               <p className="text-sm text-muted-foreground">

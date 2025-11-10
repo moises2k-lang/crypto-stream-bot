@@ -86,6 +86,39 @@ export type Database = {
         }
         Relationships: []
       }
+      free_trials: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          has_used_trial: boolean | null
+          id: string
+          is_active: boolean | null
+          started_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          has_used_trial?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          started_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          has_used_trial?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          started_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       login_history: {
         Row: {
           browser: string | null

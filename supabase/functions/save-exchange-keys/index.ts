@@ -139,6 +139,15 @@ serve(async (req) => {
       ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 6)}`
       : `${apiKey.substring(0, 3)}...${apiKey.substring(apiKey.length - 3)}`;
 
+    // Check if this is the user's first exchange connection
+    const { data: existingConnections } = await supabase
+      .from("exchange_connections")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_connected", true);
+
+    const isFirstConnection = !existingConnections || existingConnections.length === 0;
+
     // Mark connection as active with API key preview
     const { error: connError } = await supabase
       .from("exchange_connections")
@@ -158,7 +167,34 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    // If this is the first connection, activate free trial
+    if (isFirstConnection) {
+      const { data: trialData } = await supabase
+        .from("free_trials")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (trialData && !trialData.has_used_trial && !trialData.is_active) {
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
+
+        await supabase
+          .from("free_trials")
+          .update({
+            started_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            is_active: true,
+            has_used_trial: true,
+            updated_at: now.toISOString(),
+          })
+          .eq("user_id", user.id);
+
+        console.log(`Free trial activated for user ${user.id}, expires at ${expiresAt.toISOString()}`);
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, trial_started: isFirstConnection }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
