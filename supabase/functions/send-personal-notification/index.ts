@@ -41,6 +41,20 @@ serve(async (req) => {
     }
 
     const { message, userId }: NotificationData = await req.json();
+    
+    // If userId is specified (sending to another user), verify admin role
+    if (userId && userId !== user.id) {
+      const { data: isAdmin } = await supabase
+        .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      
+      if (!isAdmin) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: Admin role required to send notifications to other users' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+        );
+      }
+    }
+    
     const targetUserId = userId || user.id;
 
     // Get user's telegram connection

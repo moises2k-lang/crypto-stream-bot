@@ -52,7 +52,7 @@ serve(async (req) => {
 
     const { userId, action, data } = await req.json();
 
-    console.log('Received action:', action, 'for userId:', userId, 'with data:', data);
+    console.log('Admin action received:', action);
 
     if (!userId || !action) {
       return new Response(
@@ -74,6 +74,7 @@ serve(async (req) => {
       }
 
       case 'reset_password': {
+        console.log('Password reset initiated');
         const { error } = await supabase.auth.admin.updateUserById(userId, {
           password: data.newPassword
         });

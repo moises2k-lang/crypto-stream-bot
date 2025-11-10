@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { TrendingUp } from "lucide-react";
 import { z } from "zod";
-import { WebAuthnLogin } from "@/components/WebAuthnLogin";
+
 
 const authSchema = z.object({
   email: z.string()
@@ -342,10 +342,7 @@ export const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl grid md:grid-cols-2 gap-4">
-        <WebAuthnLogin onSuccess={() => window.location.href = "/"} />
-        
-      <Card className="w-full bg-card border-border">
+      <Card className="w-full max-w-md bg-card border-border">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-primary/10 p-3 rounded-lg">
@@ -635,7 +632,6 @@ export const Auth = () => {
           </div>
         </CardContent>
       </Card>
-      </div>
     </div>
   );
 };
