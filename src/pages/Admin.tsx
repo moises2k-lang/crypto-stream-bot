@@ -11,7 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Edit, ShieldOff } from "lucide-react";
+import { Shield, UserX, UserCheck, Key, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Edit, ShieldOff, Trash2 } from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserData {
   id: string;
@@ -38,6 +48,7 @@ const Admin = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [editFullName, setEditFullName] = useState("");
@@ -265,6 +276,37 @@ const Admin = () => {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { error } = await supabase.functions.invoke('admin-update-user', {
+        body: {
+          userId: selectedUser.user_id,
+          action: 'delete_user',
+          data: {}
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("Usuario eliminado correctamente");
+      setDeleteDialogOpen(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Error al eliminar usuario");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (!isAdmin || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -336,7 +378,7 @@ const Admin = () => {
                       <TableCell>{user.trades_count}</TableCell>
                       <TableCell>{user.active_signals_count}</TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Button
                             size="sm"
                             variant="outline"
@@ -353,15 +395,29 @@ const Admin = () => {
                             <Edit className="h-4 w-4" />
                           </Button>
                           {!isCurrentUser && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleToggleActive(user.user_id, user.is_active)}
-                              disabled={actionLoading}
-                              title={user.is_active ? "Desactivar usuario" : "Activar usuario"}
-                            >
-                              {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleToggleActive(user.user_id, user.is_active)}
+                                disabled={actionLoading}
+                                title={user.is_active ? "Desactivar usuario" : "Activar usuario"}
+                              >
+                                {user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                disabled={actionLoading}
+                                title="Eliminar usuario permanentemente"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
                           <Button
                             size="sm"
@@ -569,6 +625,35 @@ const Admin = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción <strong>NO se puede deshacer</strong>. Esto eliminará permanentemente la cuenta de{" "}
+              <strong>{selectedUser?.email}</strong> y todos sus datos asociados:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Perfil y estadísticas</li>
+                <li>Operaciones y señales</li>
+                <li>Conexiones de exchange</li>
+                <li>Notificaciones e historial</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              disabled={actionLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {actionLoading ? "Eliminando..." : "Sí, eliminar permanentemente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

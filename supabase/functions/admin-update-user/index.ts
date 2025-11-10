@@ -122,6 +122,16 @@ serve(async (req) => {
         break;
       }
 
+      case 'delete_user': {
+        console.log('Deleting user:', userId);
+        
+        // Delete user will cascade and delete all related data due to foreign key constraints
+        const { error } = await supabase.auth.admin.deleteUser(userId);
+        
+        if (error) throw error;
+        break;
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
