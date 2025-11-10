@@ -40,19 +40,23 @@ export const Auth = () => {
   const [mfaCode, setMfaCode] = useState("");
   const recaptchaRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    // Load reCAPTCHA v3 script
+  const loadRecaptcha = () => {
+    if (recaptchaLoaded || document.querySelector(`script[src*="google.com/recaptcha"]`)) {
+      return;
+    }
+    
     const script = document.createElement('script');
     script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
     script.async = true;
     script.defer = true;
     script.onload = () => setRecaptchaLoaded(true);
     document.body.appendChild(script);
+  };
 
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+  // Only load reCAPTCHA when user starts interacting with form
+  const handleFormInteraction = () => {
+    loadRecaptcha();
+  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,6 +371,7 @@ export const Auth = () => {
                   placeholder="Tu nombre"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  onFocus={handleFormInteraction}
                   required={!isLogin}
                   className="bg-background border-border"
                 />
@@ -380,6 +385,7 @@ export const Auth = () => {
                 placeholder="tu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={handleFormInteraction}
                 required
                 className="bg-background border-border"
               />
@@ -392,6 +398,7 @@ export const Auth = () => {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={handleFormInteraction}
                 required
                 className="bg-background border-border"
               />
