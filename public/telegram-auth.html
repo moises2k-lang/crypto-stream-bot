@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Login</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      color: #1a1a1a;
+      font-size: 24px;
+    }
+    p {
+      color: #666;
+      margin: 0 0 30px;
+      font-size: 14px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 20px auto;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .error {
+      color: #dc2626;
+      background: #fee;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">📱</div>
+    <h1>Telegram Login</h1>
+    <p>Conectando con Telegram...</p>
+    <div class="spinner"></div>
+    <div id="error" class="error" style="display: none;"></div>
+  </div>
+
+  <script>
+    // Parse URL hash parameters
+    function parseFragment() {
+      const fragment = window.location.hash.substring(1);
+      const params = new URLSearchParams(fragment);
+      const result = {};
+      for (const [key, value] of params) {
+        result[key] = value;
+      }
+      return result;
+    }
+
+    // Send data to parent window
+    function sendToParent(data) {
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'telegram-auth',
+          data: data
+        }, window.location.origin);
+        
+        // Close this window
+        setTimeout(() => {
+          window.close();
+        }, 500);
+      } else {
+        showError('No se pudo comunicar con la ventana principal');
+      }
+    }
+
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    }
+
+    // Check for Telegram auth data
+    window.addEventListener('load', () => {
+      try {
+        const authData = parseFragment();
+        
+        if (authData && authData.id) {
+          // Valid auth data received
+          sendToParent(authData);
+        } else if (window.location.search) {
+          // Check query params as fallback
+          const params = new URLSearchParams(window.location.search);
+          const queryData = {};
+          for (const [key, value] of params) {
+            queryData[key] = value;
+          }
+          if (queryData.id) {
+            sendToParent(queryData);
+          } else {
+            showError('No se recibieron datos de autenticación de Telegram');
+          }
+        } else {
+          showError('No se recibieron datos de autenticación de Telegram');
+        }
+      } catch (error) {
+        console.error('Error processing auth:', error);
+        showError('Error al procesar la autenticación: ' + error.message);
+      }
+    });
+  </script>
+</body>
+</html>

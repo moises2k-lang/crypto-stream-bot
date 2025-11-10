@@ -527,6 +527,98 @@ export const Auth = () => {
               </svg>
               Facebook
             </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  // Open Telegram login in a popup
+                  const width = 600;
+                  const height = 700;
+                  const left = window.screen.width / 2 - width / 2;
+                  const top = window.screen.height / 2 - height / 2;
+                  
+                  const popup = window.open(
+                    'about:blank',
+                    'telegram-login',
+                    `width=${width},height=${height},left=${left},top=${top}`
+                  );
+                  
+                  if (!popup) {
+                    toast.error("Por favor habilita ventanas emergentes");
+                    setLoading(false);
+                    return;
+                  }
+
+                  // Get the Telegram login URL from edge function
+                  const { data, error } = await supabase.functions.invoke('get-telegram-auth-url');
+                  
+                  if (error || !data?.url) {
+                    throw new Error("No se pudo obtener URL de autenticación");
+                  }
+
+                  popup.location.href = data.url;
+
+                  // Listen for the response
+                  const handleMessage = async (event: MessageEvent) => {
+                    if (event.origin !== window.location.origin) return;
+                    
+                    if (event.data.type === 'telegram-auth') {
+                      window.removeEventListener('message', handleMessage);
+                      popup.close();
+                      
+                      try {
+                        // Authenticate with Telegram data
+                        const { data: authData, error: authError } = await supabase.functions.invoke(
+                          'telegram-auth',
+                          { body: event.data.data }
+                        );
+
+                        if (authError || !authData?.session) {
+                          throw new Error("Error en autenticación");
+                        }
+
+                        // Set the session
+                        await supabase.auth.setSession({
+                          access_token: authData.session.access_token,
+                          refresh_token: authData.session.refresh_token
+                        });
+
+                        toast.success("Sesión iniciada con Telegram");
+                      } catch (err: any) {
+                        toast.error(err.message || "Error al autenticar con Telegram");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }
+                  };
+
+                  window.addEventListener('message', handleMessage);
+
+                  // Check if popup was closed
+                  const checkClosed = setInterval(() => {
+                    if (popup.closed) {
+                      clearInterval(checkClosed);
+                      window.removeEventListener('message', handleMessage);
+                      setLoading(false);
+                    }
+                  }, 500);
+                } catch (error: any) {
+                  console.error('Telegram auth error:', error);
+                  toast.error("Error al iniciar sesión con Telegram");
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              className="col-span-2"
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+              </svg>
+              Telegram
+            </Button>
           </div>
           
           <div className="mt-4 text-center">
