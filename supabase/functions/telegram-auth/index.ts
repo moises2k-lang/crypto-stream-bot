@@ -100,9 +100,13 @@ serve(async (req) => {
     let user = existingUser?.users.find(u => u.email === email);
 
     if (!user) {
+      // Generate a secure random password for the new user
+      const securePassword = crypto.randomUUID() + crypto.randomUUID();
+      
       // Create new user
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
+        password: securePassword,
         email_confirm: true,
         user_metadata: {
           telegram_id: telegramId,
@@ -144,47 +148,20 @@ serve(async (req) => {
       });
     }
 
-    // Generate session for the user
-    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
+    // Generate a secure session using admin API (no password needed)
+    const { data, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
-      email,
-      options: {
-        redirectTo: `${req.headers.get('origin') || 'https://crypto-stream-bot.lovable.app'}/`
-      }
+      email: user.email!,
     });
 
     if (sessionError) throw sessionError;
+    if (!data) throw new Error('Failed to generate auth link');
 
-    // Create session tokens
-    const { data: session, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-      email,
-      password: botToken // Use bot token as password for Telegram users
-    });
-
-    if (signInError) {
-      // If password doesn't work, set a new one
-      await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        password: botToken
-      });
-
-      const { data: retrySession, error: retryError } = await supabaseAdmin.auth.signInWithPassword({
-        email,
-        password: botToken
-      });
-
-      if (retryError) throw retryError;
-      
-      return new Response(
-        JSON.stringify({ session: retrySession.session }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
-    }
+    // Extract session from the properties
+    const session = data.properties;
 
     return new Response(
-      JSON.stringify({ session: session.session }),
+      JSON.stringify({ session }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
