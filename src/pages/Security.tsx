@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { Shield, ShieldCheck, QrCode, Key, Monitor, Smartphone, Tablet, MapPin, Clock } from "lucide-react";
+import { WebAuthnSetup } from "@/components/WebAuthnSetup";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -212,7 +213,29 @@ const Security = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Accordion type="multiple" defaultValue={["2fa", "history"]} className="w-full">
+            <Accordion type="multiple" defaultValue={["2fa", "biometric", "history"]} className="w-full">
+              {/* Biometric Authentication Section */}
+              <AccordionItem value="biometric">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Shield className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold">Autenticación Biométrica</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Login rápido con huella digital o Face ID
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="pt-4">
+                    <WebAuthnSetup />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
               {/* 2FA Section */}
               <AccordionItem value="2fa">
                 <AccordionTrigger>
