@@ -1,4 +1,4 @@
-import { TrendingUp, Menu, LogOut, Shield, Settings, Home } from "lucide-react";
+import { TrendingUp, Menu, LogOut, Shield, Settings, Home, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -98,6 +98,10 @@ export const DashboardHeader = () => {
                   <Settings className="mr-2 h-4 w-4" />
                   {t('header.security')}
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/subscriptions')}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Suscripciones
+                </DropdownMenuItem>
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />
@@ -163,6 +167,18 @@ export const DashboardHeader = () => {
                   >
                     <Settings className="mr-2 h-4 w-4" />
                     {t('header.security')}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => {
+                      navigate('/subscriptions');
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Suscripciones
                   </Button>
 
                   {isAdmin && (
