@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BiometricLogin } from "@/components/BiometricLogin";
 import { toast } from "sonner";
 import { TrendingUp } from "lucide-react";
 import { z } from "zod";
@@ -342,8 +343,10 @@ export const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-card border-border">
-        <CardHeader className="text-center">
+      <div className="w-full max-w-md space-y-4">
+        <BiometricLogin />
+        <Card className="w-full bg-card border-border">
+          <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-primary/10 p-3 rounded-lg">
               <TrendingUp className="h-8 w-8 text-primary" />
@@ -631,7 +634,8 @@ export const Auth = () => {
             </button>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
