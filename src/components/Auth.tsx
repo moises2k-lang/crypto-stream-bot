@@ -7,18 +7,8 @@ import { BiometricLogin } from "@/components/BiometricLogin";
 import { toast } from "sonner";
 import { TrendingUp } from "lucide-react";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 
-
-const authSchema = z.object({
-  email: z.string()
-    .trim()
-    .min(1, "El email es requerido")
-    .email("Ingresa un email válido")
-    .max(255, "El email es demasiado largo"),
-  password: z.string()
-    .min(6, "La contraseña debe tener al menos 6 caracteres")
-    .max(100, "La contraseña es demasiado larga")
-});
 
 const RECAPTCHA_SITE_KEY = "6LfzfwcsAAAAAPzLJA1w-USCXdQjz-XEZ8VIC0ck";
 
@@ -29,6 +19,7 @@ declare global {
 }
 
 export const Auth = () => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -39,6 +30,17 @@ export const Auth = () => {
   const [showMFAVerify, setShowMFAVerify] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const recaptchaRef = useRef<number | null>(null);
+
+  const authSchema = z.object({
+    email: z.string()
+      .trim()
+      .min(1, t('auth.errors.emailRequired'))
+      .email(t('auth.errors.emailInvalid'))
+      .max(255, t('auth.errors.emailTooLong')),
+    password: z.string()
+      .min(6, t('auth.errors.passwordMin'))
+      .max(100, t('auth.errors.passwordTooLong'))
+  });
 
   const loadRecaptcha = () => {
     if (recaptchaLoaded || document.querySelector(`script[src*="google.com/recaptcha"]`)) {
@@ -64,7 +66,7 @@ export const Auth = () => {
     try {
       z.string().email().parse(email.trim());
     } catch (error) {
-      toast.error("Ingresa un email válido");
+      toast.error(t('auth.errors.emailValidation'));
       return;
     }
 
@@ -75,10 +77,10 @@ export const Auth = () => {
       });
       
       if (error) throw error;
-      toast.success("Correo de recuperación enviado. Revisa tu bandeja de entrada.");
+      toast.success(t('auth.messages.resetEmailSent'));
       setIsResetPassword(false);
     } catch (error: any) {
-      toast.error(error.message || "Error al enviar correo de recuperación");
+      toast.error(error.message || t('auth.errors.resetError'));
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ export const Auth = () => {
 
   const handleVerifyMFALogin = async () => {
     if (!mfaCode || mfaCode.length !== 6) {
-      toast.error("Ingresa un código de 6 dígitos");
+      toast.error(t('auth.errors.codeRequired'));
       return;
     }
 
@@ -96,7 +98,7 @@ export const Auth = () => {
       const totpFactor = mfaData?.totp?.[0];
 
       if (!totpFactor) {
-        toast.error("No se encontró configuración 2FA");
+        toast.error(t('auth.errors.noMfaConfig'));
         return;
       }
 
@@ -111,11 +113,11 @@ export const Auth = () => {
 
       if (verify.error) throw verify.error;
 
-      toast.success("Sesión iniciada correctamente");
+      toast.success(t('auth.messages.sessionStarted'));
       setShowMFAVerify(false);
       setMfaCode("");
     } catch (error: any) {
-      toast.error("Código incorrecto. Intenta de nuevo.");
+      toast.error(t('auth.errors.invalidCode'));
     } finally {
       setLoading(false);
     }
@@ -136,13 +138,13 @@ export const Auth = () => {
 
     // Validar nombre si es registro
     if (!isLogin && !fullName.trim()) {
-      toast.error("El nombre es requerido");
+      toast.error(t('auth.errors.nameRequired'));
       return;
     }
 
     // Verify reCAPTCHA v3 for both login and signup
     if (!window.grecaptcha || !recaptchaLoaded) {
-      toast.error("reCAPTCHA no está cargado");
+      toast.error(t('auth.errors.recaptchaNotLoaded'));
       return;
     }
 
@@ -150,7 +152,7 @@ export const Auth = () => {
     try {
       recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'submit' });
     } catch (error) {
-      toast.error("Error al verificar reCAPTCHA");
+      toast.error(t('auth.errors.recaptchaError'));
       return;
     }
 
@@ -164,7 +166,7 @@ export const Auth = () => {
       );
 
       if (verifyError || !verifyData?.success) {
-        toast.error("Verificación de reCAPTCHA fallida");
+        toast.error(t('auth.errors.recaptchaFailed'));
         setLoading(false);
         return;
       }
@@ -210,7 +212,7 @@ export const Auth = () => {
           return;
         }
 
-        toast.success("Sesión iniciada correctamente");
+        toast.success(t('auth.messages.sessionStarted'));
       } else {
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -237,16 +239,16 @@ export const Auth = () => {
           });
         }
         
-        toast.success("Cuenta creada correctamente");
+        toast.success(t('auth.messages.accountCreated'));
       }
     } catch (error: any) {
       // Manejo de errores más específico
       if (error.message?.includes("already registered")) {
-        toast.error("Este email ya está registrado");
+        toast.error(t('auth.errors.alreadyRegistered'));
       } else if (error.message?.includes("Invalid login credentials")) {
-        toast.error("Email o contraseña incorrectos");
+        toast.error(t('auth.errors.invalidCredentials'));
       } else {
-        toast.error(error.message || "Ocurrió un error");
+        toast.error(error.message || t('common.error'));
       }
     } finally {
       setLoading(false);
@@ -258,14 +260,14 @@ export const Auth = () => {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-card border-border">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-foreground">Verificación 2FA</CardTitle>
+            <CardTitle className="text-2xl text-foreground">{t('auth.mfaVerification')}</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Ingresa el código de Google Authenticator
+              {t('auth.mfaPrompt')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Código de verificación</label>
+              <label className="text-sm font-medium text-foreground">{t('auth.verificationCode')}</label>
               <Input
                 type="text"
                 placeholder="000000"
@@ -280,14 +282,14 @@ export const Auth = () => {
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
               disabled={loading}
             >
-              {loading ? "Verificando..." : "Verificar"}
+              {loading ? t('common.verifying') : t('auth.verify')}
             </Button>
             <Button
               onClick={() => setShowMFAVerify(false)}
               variant="outline"
               className="w-full"
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
           </CardContent>
         </Card>
@@ -305,18 +307,18 @@ export const Auth = () => {
                 <TrendingUp className="h-8 w-8 text-primary" />
               </div>
             </div>
-            <CardTitle className="text-2xl text-foreground">Recuperar Contraseña</CardTitle>
+            <CardTitle className="text-2xl text-foreground">{t('auth.recoverPassword')}</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Te enviaremos un correo para restablecer tu contraseña
+              {t('auth.messages.recoverySent')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Email</label>
+                <label className="text-sm font-medium text-foreground">{t('auth.email')}</label>
                 <Input
                   type="email"
-                  placeholder="tu@email.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -328,7 +330,7 @@ export const Auth = () => {
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 disabled={loading}
               >
-                {loading ? "Enviando..." : "Enviar Correo"}
+                {loading ? t('common.sending') : t('auth.sendEmail')}
               </Button>
             </form>
             <div className="mt-4 text-center">
@@ -336,7 +338,7 @@ export const Auth = () => {
                 onClick={() => setIsResetPassword(false)}
                 className="text-sm text-primary hover:underline"
               >
-                Volver al inicio de sesión
+                {t('auth.backToLogin')}
               </button>
             </div>
           </CardContent>
@@ -358,17 +360,17 @@ export const Auth = () => {
           </div>
           <CardTitle className="text-2xl text-foreground">TradePro</CardTitle>
           <CardDescription className="text-muted-foreground">
-            {isLogin ? "Inicia sesión en tu cuenta" : "Crea tu cuenta"}
+            {isLogin ? t('auth.loginTitle') : t('auth.signupTitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Nombre Completo</label>
+                <label className="text-sm font-medium text-foreground">{t('auth.fullName')}</label>
                 <Input
                   type="text"
-                  placeholder="Tu nombre"
+                  placeholder={t('auth.yourName')}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   onFocus={handleFormInteraction}
@@ -379,10 +381,10 @@ export const Auth = () => {
             )}
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Email</label>
+              <label className="text-sm font-medium text-foreground">{t('auth.email')}</label>
               <Input
                 type="email"
-                placeholder="tu@email.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onFocus={handleFormInteraction}
@@ -392,7 +394,7 @@ export const Auth = () => {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Contraseña</label>
+              <label className="text-sm font-medium text-foreground">{t('auth.password')}</label>
               <Input
                 type="password"
                 placeholder="••••••••"
@@ -411,7 +413,7 @@ export const Auth = () => {
                   onClick={() => setIsResetPassword(true)}
                   className="text-sm text-primary hover:underline"
                 >
-                  ¿Olvidaste tu contraseña?
+                  {t('auth.forgotPassword')}
                 </button>
               </div>
             )}
@@ -421,7 +423,7 @@ export const Auth = () => {
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
               disabled={loading}
             >
-              {loading ? "Procesando..." : isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
+              {loading ? t('common.processing') : isLogin ? t('auth.login') : t('auth.createAccount')}
             </Button>
           </form>
 
