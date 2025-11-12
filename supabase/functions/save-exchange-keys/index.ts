@@ -101,7 +101,7 @@ serve(async (req) => {
       });
     }
 
-    const allowed = ["Binance", "Bybit"];
+    const allowed = ["Binance", "BinanceUS", "Bybit"];
     if (!allowed.includes(exchange)) {
       return new Response(JSON.stringify({ error: "Exchange inválido" }), {
         status: 400,
