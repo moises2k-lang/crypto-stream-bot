@@ -6,6 +6,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function fromBase64(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+  const passphraseBytes = new TextEncoder().encode(passphrase);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    passphraseBytes as unknown as BufferSource,
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"],
+  );
+  return await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: (salt as unknown as BufferSource), iterations: 100_000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+async function decrypt(ciphertext: string, iv: string, salt: string, passphrase: string): Promise<string> {
+  const key = await deriveKey(passphrase, fromBase64(salt));
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: (fromBase64(iv) as unknown as BufferSource) },
+    key,
+    (fromBase64(ciphertext).buffer as ArrayBuffer),
+  );
+  return new TextDecoder().decode(decrypted);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -39,29 +76,6 @@ serve(async (req) => {
       });
     }
 
-    // Decrypt function
-    async function decrypt(encryptedData: string, iv: string, key: string): Promise<string> {
-      const keyBuffer = new TextEncoder().encode(key.padEnd(32, '0').slice(0, 32));
-      const cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyBuffer,
-        { name: "AES-GCM" },
-        false,
-        ["decrypt"]
-      );
-
-      const encryptedBuffer = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
-      const ivBuffer = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
-
-      const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: ivBuffer },
-        cryptoKey,
-        encryptedBuffer
-      );
-
-      return new TextDecoder().decode(decrypted);
-    }
-
     // Get exchange connections
     const { data: connections } = await supabaseClient
       .from('exchange_connections')
@@ -92,9 +106,19 @@ serve(async (req) => {
 
       if (!creds) continue;
 
-      // Decrypt API keys
-      const apiKey = await decrypt(creds.api_key_ciphertext, creds.api_key_iv, ENCRYPTION_KEY);
-      const apiSecret = await decrypt(creds.api_secret_ciphertext, creds.api_secret_iv, ENCRYPTION_KEY);
+      // Decrypt API keys with salt
+      const apiKey = await decrypt(
+        creds.api_key_ciphertext, 
+        creds.api_key_iv, 
+        creds.salt,
+        ENCRYPTION_KEY
+      );
+      const apiSecret = await decrypt(
+        creds.api_secret_ciphertext, 
+        creds.api_secret_iv,
+        creds.salt,
+        ENCRYPTION_KEY
+      );
 
       // Fetch balance based on exchange
       if (connection.exchange_name === 'Bybit') {
