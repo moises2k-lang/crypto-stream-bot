@@ -19,7 +19,6 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
   const [activeTab, setActiveTab] = useState("Binance");
   const [connections, setConnections] = useState({
     binance: false,
-    binanceus: false,
     bybit: false,
     telegram: false,
   });
@@ -85,7 +84,6 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
 
       const newConnections = {
         binance: exchangeData?.some(conn => conn.exchange_name === 'Binance' && conn.is_connected) || false,
-        binanceus: exchangeData?.some(conn => conn.exchange_name === 'BinanceUS' && conn.is_connected) || false,
         bybit: exchangeData?.some(conn => conn.exchange_name === 'Bybit' && conn.is_connected) || false,
         telegram: !!telegramData,
       };
@@ -239,7 +237,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Exchanges</CardTitle>
-            {(connections.binance || connections.binanceus || connections.bybit) && (
+            {(connections.binance || connections.bybit) && (
               <Badge variant="outline" className="bg-success/10 text-success border-success/20">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Conectado
@@ -252,9 +250,8 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="Binance">Binance</TabsTrigger>
-              <TabsTrigger value="BinanceUS">Binance US</TabsTrigger>
               <TabsTrigger value="Bybit">Bybit</TabsTrigger>
             </TabsList>
             
@@ -288,44 +285,6 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                       variant="destructive" 
                       size="sm"
                       onClick={() => handleDisconnect("Binance")}
-                    >
-                      Desconectar
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="BinanceUS" className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Conecta tu cuenta de Binance US para trading automático
-              </p>
-              {!connections.binanceus ? (
-                <Button 
-                  onClick={() => handleConnect("BinanceUS")}
-                  className="w-full"
-                >
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Conectar
-                </Button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">Conectado</span>
-                        {connectionDetails.binanceus?.apiKeyPreview && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {connectionDetails.binanceus.apiKeyPreview}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={() => handleDisconnect("BinanceUS")}
                     >
                       Desconectar
                     </Button>
@@ -448,14 +407,10 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                 <li className="text-destructive font-medium">⚠️ NO habilites permisos de Withdrawal (retiro)</li>
                 <li>Copia la API Key y Secret aquí</li>
               </ol>
-               <a 
-                href={
-                  activeTab === "Binance" 
-                    ? "https://www.binance.com/en/my/settings/api-management" 
-                    : activeTab === "BinanceUS"
-                    ? "https://www.binance.us/en/usercenter/settings/api-management"
-                    : "https://www.bybit.com/app/user/api-management"
-                }
+              <a 
+                href={activeTab === "Binance" 
+                  ? "https://www.binance.com/en/my/settings/api-management" 
+                  : "https://www.bybit.com/app/user/api-management"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline inline-flex items-center gap-1"
