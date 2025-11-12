@@ -21,6 +21,13 @@ export const StatsGrid = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Sync balance from exchanges first
+    try {
+      await supabase.functions.invoke('sync-exchange-balance');
+    } catch (error) {
+      console.error('Error syncing balance:', error);
+    }
+
     // Fetch user stats
     const { data: userStats } = await supabase
       .from('user_stats')
