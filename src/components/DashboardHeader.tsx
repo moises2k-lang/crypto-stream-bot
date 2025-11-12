@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ExchangeIcons } from "@/components/ExchangeIcons";
 import { useTranslation } from "react-i18next";
 
 export const DashboardHeader = () => {
@@ -74,6 +75,7 @@ export const DashboardHeader = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <ExchangeIcons />
             <LanguageSwitcher />
             
             {/* Desktop Menu */}

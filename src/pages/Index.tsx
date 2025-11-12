@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { StatsGrid } from "@/components/StatsGrid";
-import { ExchangeConnections } from "@/components/ExchangeConnections";
 import { SignalsPanel } from "@/components/SignalsPanel";
 import { TradesHistory } from "@/components/TradesHistory";
 import { MarketCharts } from "@/components/MarketCharts";
@@ -13,7 +12,6 @@ import { useTranslation } from "react-i18next";
 
 const Index = () => {
   const { t } = useTranslation();
-  const [isConnected, setIsConnected] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -41,33 +39,22 @@ const Index = () => {
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
         <StatsGrid />
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          <div className="lg:col-span-2 space-y-4 md:space-y-6">
-            <MarketCharts />
-            
-            <Tabs defaultValue="signals" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signals">{t('tabs.signals')}</TabsTrigger>
-                <TabsTrigger value="notifications">{t('tabs.notifications')}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="signals" className="mt-6">
-                <SignalsPanel />
-              </TabsContent>
-              <TabsContent value="notifications" className="mt-6">
-                <NotificationsHistory />
-              </TabsContent>
-            </Tabs>
-            
-            <TradesHistory />
-          </div>
-          
-          <div>
-            <ExchangeConnections 
-              isConnected={isConnected}
-              onConnectionChange={setIsConnected}
-            />
-          </div>
-        </div>
+        <MarketCharts />
+        
+        <Tabs defaultValue="signals" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="signals">{t('tabs.signals')}</TabsTrigger>
+            <TabsTrigger value="notifications">{t('tabs.notifications')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="signals" className="mt-6">
+            <SignalsPanel />
+          </TabsContent>
+          <TabsContent value="notifications" className="mt-6">
+            <NotificationsHistory />
+          </TabsContent>
+        </Tabs>
+        
+        <TradesHistory />
       </main>
     </div>
   );
