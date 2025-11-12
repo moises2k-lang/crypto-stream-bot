@@ -135,66 +135,83 @@ try {
 
       // Fetch balance based on exchange
       if (connection.exchange_name === 'Bybit') {
-        const timestamp = Date.now().toString();
         const recvWindow = '5000';
 
-        // Bybit V5 signing rules:
-        // prehash = timestamp + apiKey + recvWindow + queryString (for GET)
-        const queryString = 'accountType=UNIFIED';
-        const prehash = `${timestamp}${apiKey}${recvWindow}${queryString}`;
+        const attemptFetch = async (accountType: 'UNIFIED' | 'CONTRACT') => {
+          const timestamp = Date.now().toString();
+          const queryString = `accountType=${accountType}`;
+          const prehash = `${timestamp}${apiKey}${recvWindow}${queryString}`;
 
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(apiSecret);
-        const messageData = encoder.encode(prehash);
+          const encoder = new TextEncoder();
+          const keyData = encoder.encode(apiSecret);
+          const messageData = encoder.encode(prehash);
 
-        const cryptoKey = await crypto.subtle.importKey(
-          'raw',
-          keyData,
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
-        );
+          const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            keyData,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+          );
 
-        const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-        const signatureHex = Array.from(new Uint8Array(signature))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
+          const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+          const signatureHex = Array.from(new Uint8Array(signature))
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
 
-        const url = `https://api.bybit.com/v5/account/wallet-balance?${queryString}`;
-        const response = await fetch(url, {
-          headers: {
-            'X-BAPI-API-KEY': apiKey,
-            'X-BAPI-TIMESTAMP': timestamp,
-            'X-BAPI-RECV-WINDOW': recvWindow,
-            'X-BAPI-SIGN': signatureHex,
-            'X-BAPI-SIGN-TYPE': '2',
-          },
-        });
-
-        if (!response.ok) {
-          console.error('Bybit API error:', response.status, response.statusText);
-          continue;
-        }
-
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Bybit returned non-JSON response');
-          continue;
-        }
-
-        const data = await response.json();
-        console.log('Bybit balance response:', data);
-
-        if (data.retCode === 0 && data.result?.list) {
-          const walletBalance = data.result.list[0]?.totalEquity || '0';
-          totalBalance += parseFloat(walletBalance);
-          hadSuccess = true;
-        } else {
-          console.error('Bybit balance error:', {
-            status: response.status,
-            retCode: data?.retCode,
-            retMsg: data?.retMsg,
+          const url = `https://api.bybit.com/v5/account/wallet-balance?${queryString}`;
+          const response = await fetch(url, {
+            headers: {
+              'X-BAPI-API-KEY': apiKey,
+              'X-BAPI-TIMESTAMP': timestamp,
+              'X-BAPI-RECV-WINDOW': recvWindow,
+              'X-BAPI-SIGN': signatureHex,
+              'X-BAPI-SIGN-TYPE': '2',
+            },
           });
+
+          return response;
+        };
+
+        let bybitSuccess = false;
+        for (const type of ['UNIFIED', 'CONTRACT'] as const) {
+          try {
+            const response = await attemptFetch(type);
+
+            if (!response.ok) {
+              console.error(`Bybit API error (${type}):`, response.status, response.statusText);
+              continue;
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              console.error(`Bybit returned non-JSON response (${type})`);
+              continue;
+            }
+
+            const data = await response.json();
+            console.log(`Bybit balance response (${type}):`, data);
+
+            if (data.retCode === 0 && data.result?.list) {
+              const walletBalance = data.result.list[0]?.totalEquity || '0';
+              totalBalance += parseFloat(walletBalance);
+              hadSuccess = true;
+              bybitSuccess = true;
+              break;
+            } else {
+              console.error('Bybit balance error:', {
+                accountType: type,
+                retCode: data?.retCode,
+                retMsg: data?.retMsg,
+              });
+            }
+          } catch (err) {
+            console.error(`Bybit fetch failed (${type}):`, err);
+          }
+        }
+
+        if (!bybitSuccess) {
+          console.warn('Bybit balance fetch failed for all account types');
         }
       } else if (connection.exchange_name === 'Binance') {
         const timestamp = Date.now();
