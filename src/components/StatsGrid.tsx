@@ -52,18 +52,22 @@ export const StatsGrid = () => {
     }
   };
 
+  const changePct = stats.totalBalance > 0 
+    ? ((stats.todayPnl / stats.totalBalance) * 100).toFixed(1)
+    : '0.0';
+
   const statsData = [
     {
       label: t('stats.totalBalance'),
       value: `$${stats.totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      change: stats.todayPnl >= 0 ? `+${((stats.todayPnl / stats.totalBalance) * 100).toFixed(1)}%` : `${((stats.todayPnl / stats.totalBalance) * 100).toFixed(1)}%`,
+      change: stats.todayPnl >= 0 ? `+${changePct}%` : `-${changePct}%`,
       trend: stats.todayPnl >= 0 ? "up" as const : "down" as const,
       icon: DollarSign,
     },
     {
       label: t('stats.todayPnL'),
       value: stats.todayPnl >= 0 ? `+$${stats.todayPnl.toFixed(2)}` : `-$${Math.abs(stats.todayPnl).toFixed(2)}`,
-      change: stats.todayPnl >= 0 ? `+${((stats.todayPnl / stats.totalBalance) * 100).toFixed(1)}%` : `${((stats.todayPnl / stats.totalBalance) * 100).toFixed(1)}%`,
+      change: stats.todayPnl >= 0 ? `+${changePct}%` : `-${changePct}%`,
       trend: stats.todayPnl >= 0 ? "up" as const : "down" as const,
       icon: stats.todayPnl >= 0 ? TrendingUp : TrendingDown,
     },

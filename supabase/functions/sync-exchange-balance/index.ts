@@ -98,6 +98,7 @@ serve(async (req) => {
     }
 
     let totalBalance = 0;
+    let hadSuccess = false;
 
     for (const connection of connections) {
       // Get encrypted credentials
@@ -187,6 +188,7 @@ try {
         if (data.retCode === 0 && data.result?.list) {
           const walletBalance = data.result.list[0]?.totalEquity || '0';
           totalBalance += parseFloat(walletBalance);
+          hadSuccess = true;
         } else {
           console.error('Bybit balance error:', {
             status: response.status,
@@ -241,27 +243,33 @@ try {
           const usdtBalance = data.balances.find((b: any) => b.asset === 'USDT');
           if (usdtBalance) {
             totalBalance += parseFloat(usdtBalance.free) + parseFloat(usdtBalance.locked);
+            hadSuccess = true;
           }
         }
       }
     }
 
-    // Update user_stats with new balance
-    const { error: updateError } = await supabaseClient
-      .from('user_stats')
-      .update({ 
-        total_balance: totalBalance,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', user.id);
+    // Update user_stats with new balance only if we had any successful fetch
+    if (hadSuccess) {
+      const { error: updateError } = await supabaseClient
+        .from('user_stats')
+        .update({ 
+          total_balance: totalBalance,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
 
-    if (updateError) {
-      console.error('Error updating balance:', updateError);
+      if (updateError) {
+        console.error('Error updating balance:', updateError);
+      }
+    } else {
+      console.warn('No exchange balances fetched successfully, skipping user_stats update');
     }
 
     return new Response(JSON.stringify({ 
-      success: true,
-      balance: totalBalance 
+      success: hadSuccess,
+      balance: hadSuccess ? totalBalance : null,
+      message: hadSuccess ? 'Balance synced' : 'No balances fetched (errors upstream)'
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
