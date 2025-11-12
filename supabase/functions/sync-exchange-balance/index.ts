@@ -170,6 +170,17 @@ try {
           },
         });
 
+        if (!response.ok) {
+          console.error('Bybit API error:', response.status, response.statusText);
+          continue;
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('Bybit returned non-JSON response');
+          continue;
+        }
+
         const data = await response.json();
         console.log('Bybit balance response:', data);
 
@@ -210,6 +221,17 @@ try {
             'X-MBX-APIKEY': apiKey,
           }
         });
+
+        if (!response.ok) {
+          console.error('Binance API error:', response.status, response.statusText);
+          continue;
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('Binance returned non-JSON response');
+          continue;
+        }
 
         const data = await response.json();
         console.log('Binance balance response:', data);
