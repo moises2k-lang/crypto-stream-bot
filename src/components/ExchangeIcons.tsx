@@ -201,7 +201,7 @@ export const ExchangeIcons = () => {
             <Button
               variant="ghost"
               size="sm"
-              className={`relative gap-2 h-9 ${connections.binance ? 'text-green-500 hover:text-green-600' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`relative gap-2 h-9 ${connections.binance ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground'}`}
               title="Binance"
             >
               <span className="text-xs font-medium">Binance</span>
@@ -210,7 +210,7 @@ export const ExchangeIcons = () => {
                 <path d="M77.83 63.3L63.32 48.78 52.59 59.51l-1.24 1.23-2.54 2.54 14.51 14.5 14.51-14.47z"/>
               </svg>
               {connections.binance && (
-                <CheckCircle2 className="h-3 w-3 text-green-500 absolute -top-0.5 -right-0.5" />
+                <CheckCircle2 className="h-3 w-3 text-yellow-500 absolute -top-0.5 -right-0.5" />
               )}
             </Button>
           </DropdownMenuTrigger>
@@ -234,7 +234,7 @@ export const ExchangeIcons = () => {
             <Button
               variant="ghost"
               size="sm"
-              className={`relative gap-2 h-9 ${connections.bybit ? 'text-green-500 hover:text-green-600' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`relative gap-2 h-9 ${connections.bybit ? 'text-orange-500 hover:text-orange-600' : 'text-muted-foreground hover:text-foreground'}`}
               title="Bybit"
             >
               <span className="text-xs font-medium">Bybit</span>
@@ -242,7 +242,7 @@ export const ExchangeIcons = () => {
                 <path d="M11.5 0L0 6.5v11L11.5 24 23 17.5v-11L11.5 0zm7.47 15.89l-7.47 4.29-7.47-4.29V8.11l7.47-4.29 7.47 4.29v7.78z"/>
               </svg>
               {connections.bybit && (
-                <CheckCircle2 className="h-3 w-3 text-green-500 absolute -top-0.5 -right-0.5" />
+                <CheckCircle2 className="h-3 w-3 text-orange-500 absolute -top-0.5 -right-0.5" />
               )}
             </Button>
           </DropdownMenuTrigger>
@@ -266,13 +266,13 @@ export const ExchangeIcons = () => {
             <Button
               variant="ghost"
               size="sm"
-              className={`relative gap-2 h-9 ${connections.telegram ? 'text-green-500 hover:text-green-600' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`relative gap-2 h-9 ${connections.telegram ? 'text-blue-500 hover:text-blue-600' : 'text-muted-foreground hover:text-foreground'}`}
               title="Telegram"
             >
               <span className="text-xs font-medium">Telegram</span>
               <Send className="h-4 w-4" />
               {connections.telegram && (
-                <CheckCircle2 className="h-3 w-3 text-green-500 absolute -top-0.5 -right-0.5" />
+                <CheckCircle2 className="h-3 w-3 text-blue-500 absolute -top-0.5 -right-0.5" />
               )}
             </Button>
           </DropdownMenuTrigger>
