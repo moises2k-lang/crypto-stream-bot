@@ -179,7 +179,15 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     if (!confirm(`¿Estás seguro de desconectar ${exchange}?`)) return;
 
     try {
+      // Garantiza que el token JWT se envíe en la petición
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Tu sesión no está activa. Inicia sesión e inténtalo de nuevo.");
+        return;
+      }
+
       const { error } = await supabase.functions.invoke('disconnect-exchange', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: { exchange },
       });
 
