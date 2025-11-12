@@ -408,9 +408,11 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                 <li>Copia la API Key y Secret aquí</li>
               </ol>
               <a 
-                href={activeTab === "Binance" 
-                  ? "https://www.binance.com/en/my/settings/api-management" 
-                  : "https://www.bybit.com/app/user/api-management"
+                href={
+                  activeTab === "Binance" 
+                    ? "https://www.binance.com/en/my/settings/api-management" 
+                    : "https://www.bybit.com/app/user/api-management"
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline inline-flex items-center gap-1"
