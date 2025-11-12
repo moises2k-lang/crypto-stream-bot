@@ -235,11 +235,40 @@ try {
           .map(b => b.toString(16).padStart(2, '0'))
           .join('');
 
-        const response = await fetch(`https://api.binance.com/api/v3/account?${queryString}&signature=${signatureHex}`, {
-          headers: {
-            'X-MBX-APIKEY': apiKey,
+        // Try multiple Binance API endpoints
+        let response: Response | null = null;
+        const binanceBases = [
+          'https://api.binance.com',
+          'https://api1.binance.com',
+          'https://api2.binance.com',
+          'https://api3.binance.com'
+        ];
+
+        for (const base of binanceBases) {
+          try {
+            const r = await fetch(`${base}/api/v3/account?${queryString}&signature=${signatureHex}`, {
+              headers: {
+                'X-MBX-APIKEY': apiKey,
+              }
+            });
+            
+            if (r.status === 451 || r.status === 403) {
+              console.error(`Binance API blocked on ${base}:`, r.status, r.statusText);
+              continue;
+            }
+            
+            response = r;
+            console.log(`Binance API success on ${base}`);
+            break;
+          } catch (e) {
+            console.error(`Binance fetch failed on ${base}:`, e);
           }
-        });
+        }
+
+        if (!response) {
+          console.error('Binance API not reachable on any endpoint');
+          continue;
+        }
 
         if (!response.ok) {
           console.error('Binance API error:', response.status, response.statusText);
@@ -253,14 +282,83 @@ try {
         }
 
         const data = await response.json();
-        console.log('Binance balance response:', data);
+        console.log('Binance balance response: balances count:', Array.isArray(data?.balances) ? data.balances.length : 0);
 
-        if (data.balances) {
-          // Sum all balances in USDT equivalent
-          const usdtBalance = data.balances.find((b: any) => b.asset === 'USDT');
-          if (usdtBalance) {
-            totalBalance += parseFloat(usdtBalance.free) + parseFloat(usdtBalance.locked);
-            hadSuccess = true;
+        if (Array.isArray(data?.balances)) {
+          try {
+            // Fetch current prices for all trading pairs
+            let pricesRes: Response | null = null;
+            for (const base of binanceBases) {
+              try {
+                const pr = await fetch(`${base}/api/v3/ticker/price`);
+                if (pr.status === 451 || pr.status === 403) {
+                  console.error(`Binance price API blocked on ${base}`);
+                  continue;
+                }
+                pricesRes = pr;
+                break;
+              } catch (e) {
+                console.error(`Binance price fetch failed on ${base}:`, e);
+              }
+            }
+
+            if (!pricesRes || !pricesRes.ok) {
+              console.error('Binance price API error - using USDT only');
+              // Fallback to USDT only if price API fails
+              const usdtBalance = data.balances.find((b: any) => b.asset === 'USDT');
+              if (usdtBalance) {
+                totalBalance += parseFloat(usdtBalance.free || '0') + parseFloat(usdtBalance.locked || '0');
+                hadSuccess = true;
+              }
+              continue;
+            }
+
+            const pricesJson = await pricesRes.json();
+            const priceMap = new Map<string, number>();
+            for (const p of pricesJson) {
+              if (p?.symbol && p?.price) {
+                priceMap.set(p.symbol, parseFloat(p.price));
+              }
+            }
+
+            let userUsdtTotal = 0;
+            for (const b of data.balances) {
+              const free = parseFloat(b.free ?? '0');
+              const locked = parseFloat(b.locked ?? '0');
+              const qty = free + locked;
+              
+              if (qty <= 0.00000001) continue; // Skip dust
+              
+              const asset = String(b.asset);
+
+              if (asset === 'USDT') {
+                userUsdtTotal += qty;
+                continue;
+              }
+
+              // Try to find price for this asset
+              const symbol = `${asset}USDT`;
+              const price = priceMap.get(symbol);
+
+              if (typeof price === 'number' && !Number.isNaN(price) && price > 0) {
+                const usdtValue = qty * price;
+                userUsdtTotal += usdtValue;
+                console.log(`${asset}: ${qty} @ ${price} = ${usdtValue} USDT`);
+              } else if (asset === 'BUSD' || asset === 'FDUSD') {
+                // Stablecoins pegged to USD
+                userUsdtTotal += qty;
+              } else {
+                console.warn(`No USDT pair found for ${asset} (qty: ${qty})`);
+              }
+            }
+
+            if (userUsdtTotal > 0) {
+              totalBalance += userUsdtTotal;
+              hadSuccess = true;
+              console.log(`Total Binance USDT equivalent: ${userUsdtTotal}`);
+            }
+          } catch (e) {
+            console.error('Error converting Binance balances to USDT:', e);
           }
         }
       }
