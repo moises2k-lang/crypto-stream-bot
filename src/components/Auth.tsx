@@ -432,7 +432,7 @@ export const Auth = () => {
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">O continúa con</span>
+              <span className="bg-card px-2 text-muted-foreground">{t('auth.continueWith')}</span>
             </div>
           </div>
 
@@ -454,7 +454,7 @@ export const Auth = () => {
                   });
                   if (error) throw error;
                 } catch (error: any) {
-                  toast.error("Error al iniciar sesión con Google");
+                  toast.error(t('auth.googleError'));
                 }
               }}
               disabled={loading}
@@ -482,7 +482,7 @@ export const Auth = () => {
                   });
                   if (error) throw error;
                 } catch (error: any) {
-                  toast.error("Error al iniciar sesión con Microsoft");
+                  toast.error(t('auth.microsoftError'));
                 }
               }}
               disabled={loading}
@@ -560,7 +560,7 @@ export const Auth = () => {
                   );
                   
                   if (!popup) {
-                    toast.error("Por favor habilita ventanas emergentes");
+                    toast.error(t('auth.popupBlocked'));
                     setLoading(false);
                     return;
                   }
@@ -569,7 +569,7 @@ export const Auth = () => {
                   const { data, error } = await supabase.functions.invoke('get-telegram-auth-url');
                   
                   if (error || !data?.url) {
-                    throw new Error("No se pudo obtener URL de autenticación");
+                    throw new Error(t('auth.authUrlError'));
                   }
 
                   popup.location.href = data.url;
@@ -590,7 +590,7 @@ export const Auth = () => {
                         );
 
                         if (authError || !authData?.session) {
-                          throw new Error("Error en autenticación");
+                          throw new Error(t('auth.authenticationError'));
                         }
 
                         // Set the session
@@ -599,9 +599,9 @@ export const Auth = () => {
                           refresh_token: authData.session.refresh_token
                         });
 
-                        toast.success("Sesión iniciada con Telegram");
+                        toast.success(t('auth.telegramSuccess'));
                       } catch (err: any) {
-                        toast.error(err.message || "Error al autenticar con Telegram");
+                        toast.error(err.message || t('auth.telegramError'));
                       } finally {
                         setLoading(false);
                       }
@@ -620,7 +620,7 @@ export const Auth = () => {
                   }, 500);
                 } catch (error: any) {
                   console.error('Telegram auth error:', error);
-                  toast.error("Error al iniciar sesión con Telegram");
+                  toast.error(t('auth.telegramError'));
                   setLoading(false);
                 }
               }}
@@ -639,7 +639,7 @@ export const Auth = () => {
               onClick={() => setIsLogin(!isLogin)}
               className="text-sm text-primary hover:underline"
             >
-              {isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
+              {isLogin ? t('auth.noAccount') : t('auth.alreadyHaveAccount')}
             </button>
           </div>
         </CardContent>
