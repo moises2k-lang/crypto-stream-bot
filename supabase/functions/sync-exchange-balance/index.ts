@@ -6,7 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function fromBase64(base64: string): Uint8Array {
+function fromBase64(input: string): Uint8Array {
+  // Support standard and URL-safe base64
+  let base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  if (pad) base64 += '='.repeat(4 - pad);
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -106,19 +110,27 @@ serve(async (req) => {
 
       if (!creds) continue;
 
-      // Decrypt API keys with salt
-      const apiKey = await decrypt(
-        creds.api_key_ciphertext, 
-        creds.api_key_iv, 
-        creds.salt,
-        ENCRYPTION_KEY
-      );
-      const apiSecret = await decrypt(
-        creds.api_secret_ciphertext, 
-        creds.api_secret_iv,
-        creds.salt,
-        ENCRYPTION_KEY
-      );
+// Decrypt API keys with salt
+let apiKey: string;
+let apiSecret: string;
+try {
+  apiKey = await decrypt(
+    creds.api_key_ciphertext,
+    creds.api_key_iv,
+    creds.salt,
+    ENCRYPTION_KEY
+  );
+  apiSecret = await decrypt(
+    creds.api_secret_ciphertext,
+    creds.api_secret_iv,
+    creds.salt,
+    ENCRYPTION_KEY
+  );
+} catch (e) {
+  console.error('Decryption failed for', connection.exchange_name, e);
+  // Skip this connection if decryption fails (likely due to legacy mismatched salt)
+  continue;
+}
 
       // Fetch balance based on exchange
       if (connection.exchange_name === 'Bybit') {

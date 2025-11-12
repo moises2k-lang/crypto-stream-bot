@@ -33,10 +33,10 @@ async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
   );
 }
 
-async function encrypt(value: string, passphrase: string) {
+async function encrypt(value: string, passphrase: string, salt?: Uint8Array) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await deriveKey(passphrase, salt);
+  const saltToUse = salt ?? crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(passphrase, saltToUse);
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     key,
@@ -45,7 +45,7 @@ async function encrypt(value: string, passphrase: string) {
   return {
     ciphertext: toBase64(ciphertext),
     iv: toBase64(iv.buffer),
-    salt: toBase64(salt.buffer),
+    salt: toBase64(saltToUse.buffer as ArrayBuffer),
   };
 }
 
@@ -109,9 +109,10 @@ serve(async (req) => {
       });
     }
 
-    // Encrypt values
-    const apiKeyEnc = await encrypt(apiKey, ENCRYPTION_KEY);
-    const apiSecretEnc = await encrypt(apiSecret, ENCRYPTION_KEY);
+// Encrypt values using the same salt for both entries
+const commonSalt = crypto.getRandomValues(new Uint8Array(16));
+const apiKeyEnc = await encrypt(apiKey, ENCRYPTION_KEY, commonSalt);
+const apiSecretEnc = await encrypt(apiSecret, ENCRYPTION_KEY, commonSalt);
 
     // Store credentials (upsert)
     const { error: credError } = await supabase
