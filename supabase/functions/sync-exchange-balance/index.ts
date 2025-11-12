@@ -122,33 +122,40 @@ serve(async (req) => {
 
       // Fetch balance based on exchange
       if (connection.exchange_name === 'Bybit') {
-        const timestamp = Date.now();
-        const params = `timestamp=${timestamp}`;
-        
-        // Create signature for Bybit
+        const timestamp = Date.now().toString();
+        const recvWindow = '5000';
+
+        // Bybit V5 signing rules:
+        // prehash = timestamp + apiKey + recvWindow + queryString (for GET)
+        const queryString = 'accountType=UNIFIED';
+        const prehash = `${timestamp}${apiKey}${recvWindow}${queryString}`;
+
         const encoder = new TextEncoder();
         const keyData = encoder.encode(apiSecret);
-        const messageData = encoder.encode(params);
-        
+        const messageData = encoder.encode(prehash);
+
         const cryptoKey = await crypto.subtle.importKey(
-          "raw",
+          'raw',
           keyData,
-          { name: "HMAC", hash: "SHA-256" },
+          { name: 'HMAC', hash: 'SHA-256' },
           false,
-          ["sign"]
+          ['sign']
         );
-        
-        const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+
+        const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
         const signatureHex = Array.from(new Uint8Array(signature))
-          .map(b => b.toString(16).padStart(2, '0'))
+          .map((b) => b.toString(16).padStart(2, '0'))
           .join('');
 
-        const response = await fetch(`https://api.bybit.com/v5/account/wallet-balance?accountType=UNIFIED&${params}&sign=${signatureHex}`, {
+        const url = `https://api.bybit.com/v5/account/wallet-balance?${queryString}`;
+        const response = await fetch(url, {
           headers: {
             'X-BAPI-API-KEY': apiKey,
-            'X-BAPI-TIMESTAMP': timestamp.toString(),
+            'X-BAPI-TIMESTAMP': timestamp,
+            'X-BAPI-RECV-WINDOW': recvWindow,
             'X-BAPI-SIGN': signatureHex,
-          }
+            'X-BAPI-SIGN-TYPE': '2',
+          },
         });
 
         const data = await response.json();
@@ -157,6 +164,12 @@ serve(async (req) => {
         if (data.retCode === 0 && data.result?.list) {
           const walletBalance = data.result.list[0]?.totalEquity || '0';
           totalBalance += parseFloat(walletBalance);
+        } else {
+          console.error('Bybit balance error:', {
+            status: response.status,
+            retCode: data?.retCode,
+            retMsg: data?.retMsg,
+          });
         }
       } else if (connection.exchange_name === 'Binance') {
         const timestamp = Date.now();
