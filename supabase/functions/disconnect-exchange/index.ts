@@ -12,26 +12,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
 
-    // Get JWT from Authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-
-    // Create Supabase client with user's JWT
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
-
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Parse request body
@@ -42,7 +38,7 @@ Deno.serve(async (req) => {
     }
 
     // Delete credentials from exchange_credentials
-    const { error: deleteCredsError } = await supabase
+    const { error: deleteCredsError } = await supabaseClient
       .from('exchange_credentials')
       .delete()
       .eq('user_id', user.id)
@@ -54,7 +50,7 @@ Deno.serve(async (req) => {
     }
 
     // Update or delete connection status in exchange_connections
-    const { error: deleteConnError } = await supabase
+    const { error: deleteConnError } = await supabaseClient
       .from('exchange_connections')
       .delete()
       .eq('user_id', user.id)
