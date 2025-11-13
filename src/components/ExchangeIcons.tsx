@@ -193,8 +193,8 @@ export const ExchangeIcons = () => {
 
   return (
     <>
-      <div className="hidden lg:flex items-center gap-3 mr-2">
-        <span className="text-sm text-muted-foreground font-medium">Conexiones:</span>
+      <div className="flex items-center gap-3 mr-2">
+        <span className="text-sm text-muted-foreground font-medium hidden sm:inline">Conexiones:</span>
         <div className="flex items-center gap-1">{/* Binance Icon */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
