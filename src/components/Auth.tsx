@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BiometricLogin } from "@/components/BiometricLogin";
 import { toast } from "sonner";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 
@@ -29,6 +29,7 @@ export const Auth = () => {
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
   const [showMFAVerify, setShowMFAVerify] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const recaptchaRef = useRef<number | null>(null);
 
   const authSchema = z.object({
@@ -395,15 +396,24 @@ export const Auth = () => {
             
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">{t('auth.password')}</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={handleFormInteraction}
-                required
-                className="bg-background border-border"
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={handleFormInteraction}
+                  required
+                  className="bg-background border-border pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             {isLogin && (
