@@ -23,7 +23,13 @@ export const StatsGrid = () => {
 
     // Sync balance from exchanges first
     try {
-      await supabase.functions.invoke('sync-exchange-balance');
+      const { data: syncResult } = await supabase.functions.invoke('sync-exchange-balance');
+      console.log('Sync result:', syncResult);
+      
+      // Si no se pudo sincronizar, mostrar mensaje
+      if (!syncResult?.success) {
+        console.warn('Could not sync exchange balances. This may be due to geo-restrictions.');
+      }
     } catch (error) {
       console.error('Error syncing balance:', error);
     }
@@ -44,11 +50,23 @@ export const StatsGrid = () => {
 
     if (userStats) {
       setStats({
-        totalBalance: Number(userStats.total_balance),
-        todayPnl: Number(userStats.today_pnl),
+        totalBalance: Number(userStats.total_balance) || 0,
+        todayPnl: Number(userStats.today_pnl) || 0,
         activeSignals: signals?.length || 0,
-        winRate: Number(userStats.win_rate)
+        winRate: Number(userStats.win_rate) || 0
       });
+    } else {
+      // Si no hay stats, crear entrada inicial
+      const { error } = await supabase
+        .from('user_stats')
+        .insert({
+          user_id: user.id,
+          total_balance: 0,
+          today_pnl: 0,
+          win_rate: 0
+        });
+      
+      if (error) console.error('Error creating user_stats:', error);
     }
   };
 

@@ -160,49 +160,15 @@ try {
             .join('');
 
           const url = `https://api.bybit.com/v5/account/wallet-balance?${queryString}`;
-          
-          // Try with CORS proxy first
-          const corsProxies = [
-            'https://corsproxy.io/?',
-            'https://api.allorigins.win/raw?url=',
-          ];
-
-          let response: Response | null = null;
-          for (const proxy of corsProxies) {
-            try {
-              const proxiedUrl = `${proxy}${encodeURIComponent(url)}`;
-              const r = await fetch(proxiedUrl, {
-                headers: {
-                  'X-BAPI-API-KEY': apiKey,
-                  'X-BAPI-TIMESTAMP': timestamp,
-                  'X-BAPI-RECV-WINDOW': recvWindow,
-                  'X-BAPI-SIGN': signatureHex,
-                  'X-BAPI-SIGN-TYPE': '2',
-                },
-              });
-              
-              if (r.ok) {
-                response = r;
-                console.log(`Bybit API success via proxy ${proxy}`);
-                break;
-              }
-            } catch (e) {
-              console.error(`Bybit fetch failed via ${proxy}:`, e);
-            }
-          }
-
-          // Fallback to direct connection
-          if (!response) {
-            response = await fetch(url, {
-              headers: {
-                'X-BAPI-API-KEY': apiKey,
-                'X-BAPI-TIMESTAMP': timestamp,
-                'X-BAPI-RECV-WINDOW': recvWindow,
-                'X-BAPI-SIGN': signatureHex,
-                'X-BAPI-SIGN-TYPE': '2',
-              },
-            });
-          }
+          const response = await fetch(url, {
+            headers: {
+              'X-BAPI-API-KEY': apiKey,
+              'X-BAPI-TIMESTAMP': timestamp,
+              'X-BAPI-RECV-WINDOW': recvWindow,
+              'X-BAPI-SIGN': signatureHex,
+              'X-BAPI-SIGN-TYPE': '2',
+            },
+          });
 
           return response;
         };
@@ -269,7 +235,7 @@ try {
           .map(b => b.toString(16).padStart(2, '0'))
           .join('');
 
-        // Use CORS proxy to bypass geo-restrictions
+        // Try Binance API endpoints
         let response: Response | null = null;
         const binanceBases = [
           'https://api.binance.com',
@@ -279,54 +245,25 @@ try {
           'https://api4.binance.com'
         ];
 
-        // Try with CORS proxy first
-        const corsProxies = [
-          'https://corsproxy.io/?',
-          'https://api.allorigins.win/raw?url=',
-        ];
-
-        for (const proxy of corsProxies) {
-          for (const base of binanceBases) {
-            try {
-              const url = `${base}/api/v3/account?${queryString}&signature=${signatureHex}`;
-              const proxiedUrl = `${proxy}${encodeURIComponent(url)}`;
-              
-              const r = await fetch(proxiedUrl, {
-                headers: {
-                  'X-MBX-APIKEY': apiKey,
-                }
-              });
-              
-              if (r.ok) {
-                response = r;
-                console.log(`Binance API success via proxy ${proxy} on ${base}`);
-                break;
+        for (const base of binanceBases) {
+          try {
+            const r = await fetch(`${base}/api/v3/account?${queryString}&signature=${signatureHex}`, {
+              headers: {
+                'X-MBX-APIKEY': apiKey,
               }
-            } catch (e) {
-              console.error(`Binance fetch failed via ${proxy} on ${base}:`, e);
+            });
+            
+            if (r.ok) {
+              response = r;
+              console.log(`Binance API success on ${base}`);
+              break;
             }
-          }
-          if (response) break;
-        }
-
-        // Fallback to direct connection
-        if (!response) {
-          for (const base of binanceBases) {
-            try {
-              const r = await fetch(`${base}/api/v3/account?${queryString}&signature=${signatureHex}`, {
-                headers: {
-                  'X-MBX-APIKEY': apiKey,
-                }
-              });
-              
-              if (r.status !== 451 && r.status !== 403) {
-                response = r;
-                console.log(`Binance API success on ${base}`);
-                break;
-              }
-            } catch (e) {
-              console.error(`Binance fetch failed on ${base}:`, e);
+            
+            if (r.status !== 451 && r.status !== 403) {
+              console.log(`Binance API responded with status ${r.status} on ${base}`);
             }
+          } catch (e) {
+            console.error(`Binance fetch failed on ${base}:`, e);
           }
         }
 
@@ -351,41 +288,18 @@ try {
 
         if (Array.isArray(data?.balances)) {
           try {
-            // Fetch current prices with proxy support
+            // Fetch current prices for all trading pairs
             let pricesRes: Response | null = null;
-            
-            // Try with CORS proxy first
-            for (const proxy of corsProxies) {
-              for (const base of binanceBases) {
-                try {
-                  const url = `${base}/api/v3/ticker/price`;
-                  const proxiedUrl = `${proxy}${encodeURIComponent(url)}`;
-                  const pr = await fetch(proxiedUrl);
-                  
-                  if (pr.ok) {
-                    pricesRes = pr;
-                    console.log(`Binance price API success via proxy ${proxy}`);
-                    break;
-                  }
-                } catch (e) {
-                  console.error(`Binance price fetch failed via ${proxy} on ${base}:`, e);
+            for (const base of binanceBases) {
+              try {
+                const pr = await fetch(`${base}/api/v3/ticker/price`);
+                if (pr.ok) {
+                  pricesRes = pr;
+                  console.log(`Binance price API success on ${base}`);
+                  break;
                 }
-              }
-              if (pricesRes) break;
-            }
-
-            // Fallback to direct connection
-            if (!pricesRes) {
-              for (const base of binanceBases) {
-                try {
-                  const pr = await fetch(`${base}/api/v3/ticker/price`);
-                  if (pr.status !== 451 && pr.status !== 403) {
-                    pricesRes = pr;
-                    break;
-                  }
-                } catch (e) {
-                  console.error(`Binance price fetch failed on ${base}:`, e);
-                }
+              } catch (e) {
+                console.error(`Binance price fetch failed on ${base}:`, e);
               }
             }
 
