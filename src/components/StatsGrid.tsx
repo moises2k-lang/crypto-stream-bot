@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Activity, DollarSign } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, Activity, DollarSign, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 export const StatsGrid = () => {
   const { t } = useTranslation();
@@ -12,27 +14,52 @@ export const StatsGrid = () => {
     activeSignals: 0,
     winRate: 0
   });
+  const [logs, setLogs] = useState<{ exchange: string; logs: string[] }[]>([]);
+  const [syncing, setSyncing] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchStats();
   }, []);
 
+  const syncExchange = async (exchangeName: 'Binance' | 'Bybit') => {
+    setSyncing(prev => ({ ...prev, [exchangeName]: true }));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-exchange-balance-single', {
+        body: { exchangeName }
+      });
+
+      if (error) {
+        toast.error(`Error al sincronizar ${exchangeName}: ${error.message}`);
+        return;
+      }
+
+      if (data?.logs) {
+        setLogs(prev => {
+          const filtered = prev.filter(l => l.exchange !== exchangeName);
+          return [...filtered, { exchange: exchangeName, logs: data.logs }];
+        });
+      }
+
+      if (data?.success) {
+        toast.success(`${exchangeName} sincronizado: $${data.balance.toFixed(2)}`);
+      } else {
+        toast.warning(`${exchangeName}: ${data?.error || 'No se pudo obtener el balance'}`);
+      }
+
+      // Refresh stats after sync
+      await fetchStats();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message}`);
+      console.error('Sync error:', error);
+    } finally {
+      setSyncing(prev => ({ ...prev, [exchangeName]: false }));
+    }
+  };
+
   const fetchStats = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    // Sync balance from exchanges first
-    try {
-      const { data: syncResult } = await supabase.functions.invoke('sync-exchange-balance');
-      console.log('Sync result:', syncResult);
-      
-      // Si no se pudo sincronizar, mostrar mensaje
-      if (!syncResult?.success) {
-        console.warn('Could not sync exchange balances. This may be due to geo-restrictions.');
-      }
-    } catch (error) {
-      console.error('Error syncing balance:', error);
-    }
 
     // Fetch user stats
     const { data: userStats } = await supabase
@@ -106,34 +133,84 @@ export const StatsGrid = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-      {statsData.map((stat, index) => {
-        const Icon = stat.icon;
-        return (
-          <Card key={index} className="bg-card border-border">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs md:text-sm text-muted-foreground truncate pr-2">{stat.label}</span>
-                <Icon className={`h-4 w-4 flex-shrink-0 ${
-                  stat.trend === 'up' ? 'text-success' : 
-                  stat.trend === 'neutral' ? 'text-primary' :
-                  'text-danger'
-                }`} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xl md:text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className={`text-xs ${
-                  stat.trend === 'up' ? 'text-success' : 
-                  stat.trend === 'neutral' ? 'text-muted-foreground' :
-                  'text-danger'
-                }`}>
-                  {stat.change}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="space-y-4">
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          onClick={() => syncExchange('Binance')}
+          disabled={syncing.Binance}
+          size="sm"
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${syncing.Binance ? 'animate-spin' : ''}`} />
+          Sincronizar Binance
+        </Button>
+        <Button
+          onClick={() => syncExchange('Bybit')}
+          disabled={syncing.Bybit}
+          size="sm"
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${syncing.Bybit ? 'animate-spin' : ''}`} />
+          Sincronizar Bybit
+        </Button>
+      </div>
+
+      {logs.length > 0 && (
+        <div className="space-y-2">
+          {logs.map((logEntry) => (
+            <Card key={logEntry.exchange} className="bg-muted/50">
+              <CardContent className="p-3">
+                <h4 className="text-sm font-semibold mb-2">{logEntry.exchange} Logs:</h4>
+                <div className="space-y-1 text-xs font-mono">
+                  {logEntry.logs.map((log, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`${
+                        log.startsWith('✓') ? 'text-success' : 
+                        log.startsWith('✗') ? 'text-danger' :
+                        log.startsWith('⚠') ? 'text-warning' :
+                        'text-muted-foreground'
+                      }`}
+                    >
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {statsData.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index} className="bg-card border-border">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs md:text-sm text-muted-foreground truncate pr-2">{stat.label}</span>
+                  <Icon className={`h-4 w-4 flex-shrink-0 ${
+                    stat.trend === 'up' ? 'text-success' : 
+                    stat.trend === 'neutral' ? 'text-primary' :
+                    'text-danger'
+                  }`} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xl md:text-2xl font-bold text-foreground">{stat.value}</p>
+                  <p className={`text-xs ${
+                    stat.trend === 'up' ? 'text-success' : 
+                    stat.trend === 'neutral' ? 'text-muted-foreground' :
+                    'text-danger'
+                  }`}>
+                    {stat.change}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };
