@@ -37,6 +37,8 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     setting: boolean;
   }>({ configured: false, loading: true, setting: false });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isDemoAccount, setIsDemoAccount] = useState(false);
+  const [demoBalance, setDemoBalance] = useState("10000");
 
   useEffect(() => {
     checkAdminRole();
@@ -111,6 +113,8 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
   const handleConnect = (exchange: string) => {
     setActiveTab(exchange);
     setDialogOpen(true);
+    setApiKey("");
+    setApiSecret("");
   };
 
   const handleTelegramConnect = async () => {
@@ -140,32 +144,66 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
   };
 
   const handleSaveKeys = async () => {
-    if (!apiKey.trim() || !apiSecret.trim()) {
+    if (!isDemoAccount && (!apiKey.trim() || !apiSecret.trim())) {
       toast.error("Por favor ingresa API Key y Secret");
       return;
     }
 
-    if (apiKey.trim().length < 10 || apiSecret.trim().length < 10) {
+    if (!isDemoAccount && (apiKey.trim().length < 10 || apiSecret.trim().length < 10)) {
       toast.error("API Key y Secret deben tener al menos 10 caracteres");
+      return;
+    }
+
+    if (isDemoAccount && !demoBalance.trim()) {
+      toast.error("Por favor ingresa el saldo demo");
       return;
     }
 
     setSaving(true);
     try {
+      let finalApiKey = apiKey;
+      let finalApiSecret = apiSecret;
+
+      // Si es cuenta demo, usar credenciales especiales
+      if (isDemoAccount) {
+        finalApiKey = `DEMO_${activeTab.toUpperCase()}_${Date.now()}`;
+        finalApiSecret = `DEMO_SECRET_${Math.random().toString(36).substring(7)}`;
+        
+        // Guardar el saldo demo en user_stats
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const balance = parseFloat(demoBalance) || 10000;
+          await supabase
+            .from('user_stats')
+            .upsert({
+              user_id: user.id,
+              total_balance: balance,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id'
+            });
+        }
+      }
+
       const { error } = await supabase.functions.invoke('save-exchange-keys', {
         body: {
           exchange: activeTab,
-          apiKey: apiKey.trim(),
-          apiSecret: apiSecret.trim(),
+          apiKey: finalApiKey.trim(),
+          apiSecret: finalApiSecret.trim(),
         },
       });
 
       if (error) throw error;
 
-      toast.success(`${activeTab} conectado exitosamente`);
+      toast.success(isDemoAccount 
+        ? `✅ Cuenta demo de ${activeTab} creada con $${parseFloat(demoBalance).toLocaleString()} USDT` 
+        : `${activeTab} conectado exitosamente`
+      );
       setDialogOpen(false);
       setApiKey("");
       setApiSecret("");
+      setIsDemoAccount(false);
+      setDemoBalance("10000");
       await fetchConnections();
     } catch (error: any) {
       console.error('Error saving keys:', error);
@@ -405,60 +443,129 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Instrucciones */}
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <h4 className="text-sm font-semibold">Instrucciones:</h4>
-              <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Ve a la página de API de {activeTab}</li>
-                <li>Crea una nueva API Key</li>
-                <li>Habilita permisos de <strong>Trading (lectura y ejecución)</strong></li>
-                <li className="text-destructive font-medium">⚠️ NO habilites permisos de Withdrawal (retiro)</li>
-                <li>Copia la API Key y Secret aquí</li>
-              </ol>
-              <a 
-                href={
-                  activeTab === "Binance" 
-                    ? "https://www.binance.com/en/my/settings/api-management" 
-                    : "https://www.bybit.com/app/user/api-management"
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-              >
-                Ir a {activeTab} API Management →
-              </a>
-            </div>
+            {/* Selector de modo Demo/Real solo para Bybit */}
+            {activeTab === "Bybit" && (
+              <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50">
+                <Label className="text-sm font-medium">Modo de conexión</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={!isDemoAccount ? "default" : "outline"}
+                    onClick={() => {
+                      setIsDemoAccount(false);
+                      setApiKey("");
+                      setApiSecret("");
+                    }}
+                    className="w-full"
+                    size="sm"
+                  >
+                    🔗 Real
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isDemoAccount ? "default" : "outline"}
+                    onClick={() => {
+                      setIsDemoAccount(true);
+                      setApiKey("");
+                      setApiSecret("");
+                    }}
+                    className="w-full"
+                    size="sm"
+                  >
+                    🎮 Demo
+                  </Button>
+                </div>
+              </div>
+            )}
 
-            {/* Campos de entrada */}
-            <div>
-              <Label htmlFor="apiKey">API Key</Label>
-              <Input
-                id="apiKey"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Ingresa tu API Key"
-                className="font-mono text-sm"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="apiSecret">API Secret</Label>
-              <Input
-                id="apiSecret"
-                type="password"
-                value={apiSecret}
-                onChange={(e) => setApiSecret(e.target.value)}
-                placeholder="Ingresa tu API Secret"
-                className="font-mono text-sm"
-              />
-            </div>
+            {/* Contenido condicional según modo */}
+            {isDemoAccount && activeTab === "Bybit" ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg space-y-2">
+                  <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <span>🎮</span> Cuenta Demo de Bybit
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Crea una cuenta de práctica con saldo simulado. Perfecto para probar la plataforma sin riesgo real.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="demoBalance">Saldo inicial (USDT)</Label>
+                  <Input
+                    id="demoBalance"
+                    type="number"
+                    min="1000"
+                    max="1000000"
+                    step="1000"
+                    value={demoBalance}
+                    onChange={(e) => setDemoBalance(e.target.value)}
+                    placeholder="10000"
+                    className="text-lg font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    💡 Saldo recomendado: 10,000 - 100,000 USDT
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Instrucciones */}
+                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                  <h4 className="text-sm font-semibold">Instrucciones:</h4>
+                  <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Ve a la página de API de {activeTab}</li>
+                    <li>Crea una nueva API Key</li>
+                    <li>Habilita permisos de <strong>Trading (lectura y ejecución)</strong></li>
+                    <li className="text-destructive font-medium">⚠️ NO habilites permisos de Withdrawal (retiro)</li>
+                    <li>Copia la API Key y Secret aquí</li>
+                  </ol>
+                  <a 
+                    href={
+                      activeTab === "Binance" 
+                        ? "https://www.binance.com/en/my/settings/api-management" 
+                        : "https://www.bybit.com/app/user/api-management"
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Ir a {activeTab} API Management →
+                  </a>
+                </div>
+
+                {/* Campos de entrada */}
+                <div>
+                  <Label htmlFor="apiKey">API Key</Label>
+                  <Input
+                    id="apiKey"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Ingresa tu API Key"
+                    className="font-mono text-sm"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="apiSecret">API Secret</Label>
+                  <Input
+                    id="apiSecret"
+                    type="password"
+                    value={apiSecret}
+                    onChange={(e) => setApiSecret(e.target.value)}
+                    placeholder="Ingresa tu API Secret"
+                    className="font-mono text-sm"
+                  />
+                </div>
+              </>
+            )}
             
             <Button 
               onClick={handleSaveKeys}
               className="w-full"
               disabled={saving}
             >
-              {saving ? "Guardando..." : "Guardar Credenciales"}
+              {saving ? "Guardando..." : isDemoAccount ? "🎮 Crear Cuenta Demo" : "💾 Guardar Credenciales"}
             </Button>
           </div>
         </DialogContent>
