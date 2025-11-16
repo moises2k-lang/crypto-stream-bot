@@ -5,6 +5,7 @@ import { SignalsPanel } from "@/components/SignalsPanel";
 import { TradesHistory } from "@/components/TradesHistory";
 import { MarketCharts } from "@/components/MarketCharts";
 import { NotificationsHistory } from "@/components/NotificationsHistory";
+import { ExchangeConnections } from "@/components/ExchangeConnections";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +14,7 @@ import { useTranslation } from "react-i18next";
 const Index = () => {
   const { t } = useTranslation();
   const [user, setUser] = useState<any>(null);
+  const [isExchangeConnected, setIsExchangeConnected] = useState(false);
 
   useEffect(() => {
     // Check initial session
@@ -38,6 +40,11 @@ const Index = () => {
       
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
         <StatsGrid />
+        
+        <ExchangeConnections 
+          isConnected={isExchangeConnected}
+          onConnectionChange={setIsExchangeConnected}
+        />
         
         <MarketCharts />
         
