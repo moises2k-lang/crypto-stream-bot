@@ -92,9 +92,17 @@ Deno.serve(async (req) => {
     const exchange: string = body.exchange;
     const apiKey: string = body.apiKey;
     const apiSecret: string = body.apiSecret;
+    const accountType: string = body.accountType || 'real'; // demo or real
 
     if (!exchange || !apiKey || !apiSecret) {
       return new Response(JSON.stringify({ error: "Missing fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!['demo', 'real'].includes(accountType)) {
+      return new Response(JSON.stringify({ error: "Invalid account type" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -119,13 +127,14 @@ const apiSecretEnc = await encrypt(apiSecret, ENCRYPTION_KEY, commonSalt);
       .upsert({
         user_id: user.id,
         exchange_name: exchange,
+        account_type: accountType,
         api_key_ciphertext: apiKeyEnc.ciphertext,
         api_key_iv: apiKeyEnc.iv,
         api_secret_ciphertext: apiSecretEnc.ciphertext,
         api_secret_iv: apiSecretEnc.iv,
         salt: apiKeyEnc.salt,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,exchange_name' });
+      }, { onConflict: 'user_id,exchange_name,account_type' });
 
     if (credError) {
       return new Response(JSON.stringify({ error: credError.message }), {
@@ -154,11 +163,12 @@ const apiSecretEnc = await encrypt(apiSecret, ENCRYPTION_KEY, commonSalt);
       .upsert({
         user_id: user.id,
         exchange_name: exchange,
+        account_type: accountType,
         is_connected: true,
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         api_key_preview: apiKeyPreview,
-      }, { onConflict: 'user_id,exchange_name' });
+      }, { onConflict: 'user_id,exchange_name,account_type' });
 
     if (connError) {
       return new Response(JSON.stringify({ error: connError.message }), {

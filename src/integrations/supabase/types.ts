@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       exchange_connections: {
         Row: {
+          account_type: string
           api_key_preview: string | null
           connected_at: string | null
           created_at: string | null
@@ -26,6 +27,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_type?: string
           api_key_preview?: string | null
           connected_at?: string | null
           created_at?: string | null
@@ -36,6 +38,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_type?: string
           api_key_preview?: string | null
           connected_at?: string | null
           created_at?: string | null
@@ -49,6 +52,7 @@ export type Database = {
       }
       exchange_credentials: {
         Row: {
+          account_type: string
           api_key_ciphertext: string
           api_key_iv: string
           api_secret_ciphertext: string
@@ -61,6 +65,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_type?: string
           api_key_ciphertext: string
           api_key_iv: string
           api_secret_ciphertext: string
@@ -73,6 +78,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_type?: string
           api_key_ciphertext?: string
           api_key_iv?: string
           api_secret_ciphertext?: string
