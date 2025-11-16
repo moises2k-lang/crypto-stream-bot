@@ -164,6 +164,33 @@ Deno.serve(async (req) => {
     );
 
     console.log('🔓 Credentials decrypted successfully');
+
+    // Detectar cuenta demo
+    if (apiKey.startsWith('DEMO_')) {
+      console.log('🎮 Demo account detected, returning stored balance');
+      
+      const { data: userStats } = await supabaseClient
+        .from('user_stats')
+        .select('total_balance')
+        .eq('user_id', user.id)
+        .single();
+      
+      const demoBalance = userStats?.total_balance || 0;
+      
+      return new Response(JSON.stringify({
+        success: true,
+        balance: demoBalance,
+        logs: [
+          `🎮 Cuenta demo de ${exchangeName}`,
+          `💰 Saldo demo: $${demoBalance.toFixed(2)} USD`,
+          `ℹ️ Este es un saldo simulado`
+        ]
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     console.log('🌐 Calling Cloudflare Worker proxy in Europe...');
 
     // Call Cloudflare Worker proxy instead of direct API calls
@@ -178,7 +205,12 @@ Deno.serve(async (req) => {
         action: 'getBalance',
         apiKey: apiKey,
         apiSecret: apiSecret,
-        params: {}
+        params: {
+          // Para Bybit, consultar TODAS las wallets
+          accountTypes: exchangeName.toLowerCase() === 'bybit' 
+            ? ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] 
+            : undefined
+        }
       })
     });
 
