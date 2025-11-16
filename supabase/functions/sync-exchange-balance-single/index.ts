@@ -46,6 +46,8 @@ async function decrypt(ciphertext: string, iv: string, salt: string, passphrase:
 }
 
 Deno.serve(async (req) => {
+  console.log('🚀 Starting sync-exchange-balance-single function');
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -60,6 +62,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log('📊 Requested exchange:', exchangeName);
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -72,15 +76,35 @@ Deno.serve(async (req) => {
 
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
+      console.error('❌ Authentication error: No user');
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log('✅ User authenticated:', user.id);
+
+    // Get Cloudflare Worker configuration
+    const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL');
+    const proxyToken = Deno.env.get('CLOUDFLARE_PROXY_TOKEN');
+    
+    if (!workerUrl || !proxyToken) {
+      console.error('❌ Missing Cloudflare Worker configuration');
+      return new Response(
+        JSON.stringify({ error: 'Cloudflare Worker not configured. Please add CLOUDFLARE_WORKER_URL and CLOUDFLARE_PROXY_TOKEN secrets.' }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    console.log('🌍 Using Cloudflare Worker:', workerUrl);
+
     const ENCRYPTION_KEY = Deno.env.get("EXCHANGE_ENCRYPTION_KEY");
     if (!ENCRYPTION_KEY) {
-      console.error("Missing EXCHANGE_ENCRYPTION_KEY");
+      console.error("❌ Missing EXCHANGE_ENCRYPTION_KEY");
       return new Response(JSON.stringify({ error: "Server configuration error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -117,268 +141,91 @@ Deno.serve(async (req) => {
     if (!creds) {
       return new Response(JSON.stringify({ 
         error: "Credentials not found",
-        logs: [`Credentials not found for ${exchangeName}`]
+        logs: [`No credentials found for ${exchangeName}`]
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Decrypt API keys
-    let apiKey: string;
-    let apiSecret: string;
-    const logs: string[] = [];
-    
-    try {
-      apiKey = await decrypt(
-        creds.api_key_ciphertext,
-        creds.api_key_iv,
-        creds.salt,
-        ENCRYPTION_KEY
-      );
-      apiSecret = await decrypt(
-        creds.api_secret_ciphertext,
-        creds.api_secret_iv,
-        creds.salt,
-        ENCRYPTION_KEY
-      );
-      logs.push(`✓ Credentials decrypted successfully for ${exchangeName}`);
-    } catch (e: any) {
-      logs.push(`✗ Decryption failed: ${e.message}`);
-      return new Response(JSON.stringify({
-        error: "Decryption failed",
-        logs
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Decrypt credentials
+    const apiKey = await decrypt(
+      creds.api_key_ciphertext,
+      creds.api_key_iv,
+      creds.salt,
+      ENCRYPTION_KEY
+    );
+
+    const apiSecret = await decrypt(
+      creds.api_secret_ciphertext,
+      creds.api_secret_iv,
+      creds.salt,
+      ENCRYPTION_KEY
+    );
+
+    console.log('🔓 Credentials decrypted successfully');
+    console.log('🌐 Calling Cloudflare Worker proxy in Europe...');
+
+    // Call Cloudflare Worker proxy instead of direct API calls
+    const proxyResponse = await fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${proxyToken}`
+      },
+      body: JSON.stringify({
+        exchange: exchangeName.toLowerCase(),
+        action: 'getBalance',
+        apiKey: apiKey,
+        apiSecret: apiSecret,
+        params: {}
+      })
+    });
+
+    if (!proxyResponse.ok) {
+      const errorText = await proxyResponse.text();
+      console.error('❌ Cloudflare Worker error:', proxyResponse.status, errorText);
+      throw new Error(`Cloudflare Worker error: ${proxyResponse.status} - ${errorText}`);
     }
 
-    let balance = 0;
+    const proxyData = await proxyResponse.json();
+    console.log('✅ Cloudflare Worker response:', JSON.stringify(proxyData));
+
+    if (proxyData.error) {
+      throw new Error(`Proxy error: ${proxyData.error}`);
+    }
+
+    let balance = proxyData.balance || 0;
+    let logs: string[] = [];
 
     if (exchangeName === 'Bybit') {
-      const recvWindow = '5000';
-      
-      for (const accountType of ['UNIFIED', 'CONTRACT'] as const) {
-        const timestamp = Date.now().toString();
-        const queryString = `accountType=${accountType}`;
-        const prehash = `${timestamp}${apiKey}${recvWindow}${queryString}`;
-
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(apiSecret);
-        const messageData = encoder.encode(prehash);
-
-        const cryptoKey = await crypto.subtle.importKey(
-          'raw',
-          keyData,
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
-        );
-
-        const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-        const signatureHex = Array.from(new Uint8Array(signature))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
-
-        const url = `https://api.bybit.com/v5/account/wallet-balance?${queryString}`;
-        
-        try {
-          logs.push(`→ Requesting Bybit ${accountType} balance...`);
-          const response = await fetch(url, {
-            headers: {
-              'X-BAPI-API-KEY': apiKey,
-              'X-BAPI-TIMESTAMP': timestamp,
-              'X-BAPI-RECV-WINDOW': recvWindow,
-              'X-BAPI-SIGN': signatureHex,
-              'X-BAPI-SIGN-TYPE': '2',
-            },
-          });
-
-          logs.push(`← Bybit ${accountType} response: ${response.status} ${response.statusText}`);
-
-          if (!response.ok) {
-            logs.push(`✗ Bybit API error (${accountType}): ${response.status} ${response.statusText}`);
-            continue;
-          }
-
-          const contentType = response.headers.get('content-type');
-          if (!contentType || !contentType.includes('application/json')) {
-            logs.push(`✗ Bybit returned non-JSON response (${accountType})`);
-            continue;
-          }
-
-          const data = await response.json();
-          logs.push(`← Bybit ${accountType} data: ${JSON.stringify(data)}`);
-
-          if (data.retCode === 0 && data.result?.list) {
-            const walletBalance = data.result.list[0]?.totalEquity || '0';
-            balance = parseFloat(walletBalance);
-            logs.push(`✓ Bybit ${accountType} balance: $${balance}`);
-            break;
-          } else {
-            logs.push(`✗ Bybit error (${accountType}): retCode=${data?.retCode}, retMsg=${data?.retMsg}`);
-          }
-        } catch (err: any) {
-          logs.push(`✗ Bybit fetch failed (${accountType}): ${err.message}`);
-        }
-      }
+      logs.push(`✅ Bybit balance: $${balance.toFixed(2)} USDT`);
+      logs.push(`🌍 Connected via Cloudflare Worker (Europe)`);
     } else if (exchangeName === 'Binance') {
-      const timestamp = Date.now();
-      const queryString = `timestamp=${timestamp}`;
-      
-      const encoder = new TextEncoder();
-      const keyData = encoder.encode(apiSecret);
-      const messageData = encoder.encode(queryString);
-      
-      const cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyData,
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
-      
-      const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
-      const signatureHex = Array.from(new Uint8Array(signature))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      const binanceBases = [
-        'https://api.binance.com',
-        'https://api1.binance.com',
-        'https://api2.binance.com',
-        'https://api3.binance.com',
-        'https://api4.binance.com'
-      ];
-
-      let response: Response | null = null;
-      
-      for (const base of binanceBases) {
-        try {
-          logs.push(`→ Trying Binance account API: ${base}`);
-          const r = await fetch(`${base}/api/v3/account?${queryString}&signature=${signatureHex}`, {
-            headers: {
-              'X-MBX-APIKEY': apiKey,
-            }
-          });
-          
-          logs.push(`← Binance response from ${base}: ${r.status} ${r.statusText}`);
-          
-          if (r.ok) {
-            response = r;
-            logs.push(`✓ Binance API success on ${base}`);
-            break;
-          }
-          
-          if (r.status !== 451 && r.status !== 403) {
-            logs.push(`⚠ Binance API responded with status ${r.status} on ${base}`);
-          } else {
-            logs.push(`✗ Binance API geo-blocked (${r.status}) on ${base}`);
-          }
-        } catch (e: any) {
-          logs.push(`✗ Binance fetch failed on ${base}: ${e.message}`);
-        }
-      }
-
-      if (!response || !response.ok) {
-        logs.push(`✗ Binance API not reachable on any endpoint`);
-        return new Response(JSON.stringify({ 
-          error: "Binance API not reachable",
-          balance: 0,
-          logs
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const data = await response.json();
-      logs.push(`← Binance account data received: ${data?.balances?.length || 0} balances`);
-
-      if (Array.isArray(data?.balances)) {
-        // Get prices
-        let pricesRes: Response | null = null;
-        for (const base of binanceBases) {
-          try {
-            logs.push(`→ Trying Binance price API: ${base}`);
-            const pr = await fetch(`${base}/api/v3/ticker/price`);
-            if (pr.ok) {
-              pricesRes = pr;
-              logs.push(`✓ Binance price API success on ${base}`);
-              break;
-            }
-          } catch (e: any) {
-            logs.push(`✗ Binance price fetch failed on ${base}: ${e.message}`);
-          }
-        }
-
-        if (!pricesRes || !pricesRes.ok) {
-          logs.push(`⚠ Binance price API error - using USDT only`);
-          const usdtBalance = data.balances.find((b: any) => b.asset === 'USDT');
-          if (usdtBalance) {
-            balance = parseFloat(usdtBalance.free || '0') + parseFloat(usdtBalance.locked || '0');
-            logs.push(`✓ Binance USDT balance: $${balance}`);
-          }
-        } else {
-          const pricesJson = await pricesRes.json();
-          const priceMap = new Map<string, number>();
-          for (const p of pricesJson) {
-            if (p?.symbol && p?.price) {
-              priceMap.set(p.symbol, parseFloat(p.price));
-            }
-          }
-          logs.push(`✓ Loaded ${priceMap.size} price pairs`);
-
-          let usdtTotal = 0;
-          for (const b of data.balances) {
-            const free = parseFloat(b.free ?? '0');
-            const locked = parseFloat(b.locked ?? '0');
-            const qty = free + locked;
-            
-            if (qty <= 0.00000001) continue;
-            
-            const asset = String(b.asset);
-
-            if (asset === 'USDT') {
-              usdtTotal += qty;
-              continue;
-            }
-
-            const symbol = `${asset}USDT`;
-            const price = priceMap.get(symbol);
-
-            if (typeof price === 'number' && !Number.isNaN(price) && price > 0) {
-              const usdtValue = qty * price;
-              usdtTotal += usdtValue;
-              logs.push(`  ${asset}: ${qty} @ $${price} = $${usdtValue.toFixed(2)}`);
-            } else if (asset === 'BUSD' || asset === 'FDUSD') {
-              usdtTotal += qty;
-              logs.push(`  ${asset}: $${qty} (stablecoin)`);
-            }
-          }
-
-          balance = usdtTotal;
-          logs.push(`✓ Total Binance USDT equivalent: $${balance.toFixed(2)}`);
-        }
+      logs.push(`✅ Binance balance: $${balance.toFixed(2)} USDT`);
+      logs.push(`🌍 Connected via Cloudflare Worker (Europe)`);
+      if (proxyData.endpoint) {
+        logs.push(`📡 Binance endpoint: ${proxyData.endpoint}`);
       }
     }
 
+    console.log(`💰 Final balance: $${balance.toFixed(2)} USDT`);
+
     return new Response(JSON.stringify({ 
-      success: balance > 0,
-      exchange: exchangeName,
       balance,
-      logs
+      logs,
+      success: true
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error: any) {
-    console.error('Error syncing balance:', error);
+  } catch (error) {
+    console.error("❌ Error in sync-exchange-balance-single:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(JSON.stringify({ 
-      error: error.message,
-      logs: [`Fatal error: ${error.message}`]
+      error: errorMessage,
+      logs: [`Error: ${errorMessage}`]
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
