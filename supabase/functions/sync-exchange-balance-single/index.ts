@@ -185,6 +185,24 @@ Deno.serve(async (req) => {
     if (!proxyResponse.ok) {
       const errorText = await proxyResponse.text();
       console.error('❌ Cloudflare Worker error:', proxyResponse.status, errorText);
+
+      // Graceful handling for geo-restricted responses (e.g. 451/403)
+      if (proxyResponse.status === 451 || proxyResponse.status === 403) {
+        const logs = [
+          `⚠️ ${exchangeName} bloqueado por ubicación (código ${proxyResponse.status}).`,
+          'Sugerencia: usar VPS europeo con IP fija o un proxy con IP de la UE.',
+        ];
+        return new Response(JSON.stringify({
+          success: false,
+          balance: 0,
+          error: 'Restricted location',
+          logs,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       throw new Error(`Cloudflare Worker error: ${proxyResponse.status} - ${errorText}`);
     }
 

@@ -155,7 +155,14 @@ Deno.serve(async (req) => {
 
       if (!proxyResponse.ok) {
         const errorText = await proxyResponse.text();
-        console.error(`❌ ${exchangeName} Cloudflare Worker error:`, errorText);
+        console.error(`❌ ${exchangeName} Cloudflare Worker error:`, proxyResponse.status, errorText);
+
+        // Graceful handling for geo-restricted responses (e.g. 451/403)
+        if (proxyResponse.status === 451 || proxyResponse.status === 403) {
+          console.warn(`⚠️ ${exchangeName} bloqueado por ubicación. Se continúa sin sumar balance.`);
+          return 0; // Skip this exchange but do not fail the whole sync
+        }
+
         throw new Error(`Cloudflare Worker error for ${exchangeName}: ${proxyResponse.status}`);
       }
 
