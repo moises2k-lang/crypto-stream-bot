@@ -138,6 +138,18 @@ Deno.serve(async (req) => {
         ENCRYPTION_KEY
       );
 
+      // Detectar cuenta demo
+      if (apiKey.startsWith('DEMO_')) {
+        console.log(`🎮 Demo account detected for ${exchangeName}`);
+        const { data: userStats } = await supabaseClient
+          .from('user_stats')
+          .select('total_balance')
+          .eq('user_id', user.id)
+          .single();
+        
+        return userStats?.total_balance || 0;
+      }
+
       const proxyResponse = await fetch(workerUrl, {
         method: 'POST',
         headers: {
@@ -149,7 +161,12 @@ Deno.serve(async (req) => {
           action: 'getBalance',
           apiKey: apiKey,
           apiSecret: apiSecret,
-          params: {}
+          params: {
+            // Para Bybit, consultar TODAS las wallets
+            accountTypes: exchangeName.toLowerCase() === 'bybit' 
+              ? ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] 
+              : undefined
+          }
         })
       });
 
