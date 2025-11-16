@@ -186,16 +186,23 @@ Deno.serve(async (req) => {
       const errorText = await proxyResponse.text();
       console.error('❌ Cloudflare Worker error:', proxyResponse.status, errorText);
 
-      // Graceful handling for geo-restricted responses (e.g. 451/403)
-      if (proxyResponse.status === 451 || proxyResponse.status === 403) {
+      // Graceful handling for geo-restricted or unreachable responses (e.g. 451/403/502)
+      const isGeoOrBlocked =
+        proxyResponse.status === 451 ||
+        proxyResponse.status === 403 ||
+        proxyResponse.status === 502 ||
+        /restricted location|All Binance endpoints failed/i.test(errorText);
+
+      if (isGeoOrBlocked) {
         const logs = [
-          `⚠️ ${exchangeName} bloqueado por ubicación (código ${proxyResponse.status}).`,
-          'Sugerencia: usar VPS europeo con IP fija o un proxy con IP de la UE.',
+          `⚠️ ${exchangeName} bloqueado o no disponible desde la ubicación actual (código ${proxyResponse.status}).`,
+          'Motivo probable: geobloqueo. Binance puede bloquear ciertas IPs de Cloudflare.',
+          'Sugerencia: usar VPS europeo con IP fija o un proxy dedicado en la UE y enrutar el Worker hacia ese VPS.',
         ];
         return new Response(JSON.stringify({
           success: false,
           balance: 0,
-          error: 'Restricted location',
+          error: 'Restricted or unreachable location',
           logs,
         }), {
           status: 200,
