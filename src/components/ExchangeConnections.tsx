@@ -18,12 +18,14 @@ interface ExchangeConnectionsProps {
 export const ExchangeConnections = ({ isConnected, onConnectionChange }: ExchangeConnectionsProps) => {
   const [activeTab, setActiveTab] = useState("Binance");
   const [connections, setConnections] = useState({
-    binance: false,
-    bybit: false,
+    binance_demo: false,
+    binance_real: false,
+    bybit_demo: false,
+    bybit_real: false,
     telegram: false,
   });
   const [connectionDetails, setConnectionDetails] = useState<{
-    [key: string]: { apiKeyPreview?: string };
+    [key: string]: { apiKeyPreview?: string; accountType?: string };
   }>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,6 +41,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
   const [isAdmin, setIsAdmin] = useState(false);
   const [isDemoAccount, setIsDemoAccount] = useState(false);
   const [demoBalance, setDemoBalance] = useState("10000");
+  const [selectedAccountType, setSelectedAccountType] = useState<'demo' | 'real'>('real');
 
   useEffect(() => {
     checkAdminRole();
@@ -85,17 +88,22 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         .single();
 
       const newConnections = {
-        binance: exchangeData?.some(conn => conn.exchange_name === 'Binance' && conn.is_connected) || false,
-        bybit: exchangeData?.some(conn => conn.exchange_name === 'Bybit' && conn.is_connected) || false,
+        binance_demo: exchangeData?.some(conn => conn.exchange_name === 'Binance' && conn.account_type === 'demo' && conn.is_connected) || false,
+        binance_real: exchangeData?.some(conn => conn.exchange_name === 'Binance' && conn.account_type === 'real' && conn.is_connected) || false,
+        bybit_demo: exchangeData?.some(conn => conn.exchange_name === 'Bybit' && conn.account_type === 'demo' && conn.is_connected) || false,
+        bybit_real: exchangeData?.some(conn => conn.exchange_name === 'Bybit' && conn.account_type === 'real' && conn.is_connected) || false,
         telegram: !!telegramData,
       };
 
       // Store connection details with API key previews
-      const details: { [key: string]: { apiKeyPreview?: string } } = {};
+      const details: { [key: string]: { apiKeyPreview?: string; accountType?: string } } = {};
       exchangeData?.forEach(conn => {
-        const exchangeKey = conn.exchange_name.toLowerCase();
+        const exchangeKey = `${conn.exchange_name.toLowerCase()}_${conn.account_type}`;
         if (conn.api_key_preview) {
-          details[exchangeKey] = { apiKeyPreview: conn.api_key_preview };
+          details[exchangeKey] = { 
+            apiKeyPreview: conn.api_key_preview,
+            accountType: conn.account_type 
+          };
         }
       });
 
@@ -110,8 +118,10 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
     }
   };
 
-  const handleConnect = (exchange: string) => {
+  const handleConnect = (exchange: string, accountType: 'demo' | 'real') => {
     setActiveTab(exchange);
+    setSelectedAccountType(accountType);
+    setIsDemoAccount(accountType === 'demo');
     setDialogOpen(true);
     setApiKey("");
     setApiSecret("");
@@ -190,6 +200,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
           exchange: activeTab,
           apiKey: finalApiKey.trim(),
           apiSecret: finalApiSecret.trim(),
+          accountType: selectedAccountType,
         },
       });
 
@@ -283,7 +294,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Exchanges</CardTitle>
-            {(connections.binance || connections.bybit) && (
+            {(connections.binance_demo || connections.binance_real || connections.bybit_demo || connections.bybit_real) && (
               <Badge variant="outline" className="bg-success/10 text-success border-success/20">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Conectado
@@ -291,7 +302,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             )}
           </div>
           <CardDescription>
-            Conecta tus cuentas de trading
+            Conecta tus cuentas de trading (demo y/o real)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -303,30 +314,37 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
             
             <TabsContent value="Binance" className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Conecta tu cuenta de Binance para trading automático
+                Conecta tu cuenta de Binance para trading
               </p>
-              {!connections.binance ? (
-                <Button 
-                  onClick={() => handleConnect("Binance")}
-                  className="w-full"
-                >
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Conectar
-                </Button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">Conectado</span>
-                        {connectionDetails.binance?.apiKeyPreview && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {connectionDetails.binance.apiKeyPreview}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              
+              {/* Cuenta Demo */}
+              <div className="p-3 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">🎮 Cuenta Demo</span>
+                  {connections.binance_demo && (
+                    <Badge variant="outline" className="text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Conectada
+                    </Badge>
+                  )}
+                </div>
+                {!connections.binance_demo ? (
+                  <Button 
+                    onClick={() => handleConnect("Binance", "demo")}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Conectar Demo
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    {connectionDetails.binance_demo?.apiKeyPreview && (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {connectionDetails.binance_demo.apiKeyPreview}
+                      </span>
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm"
@@ -335,36 +353,81 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                       Desconectar
                     </Button>
                   </div>
+                )}
+              </div>
+
+              {/* Cuenta Real */}
+              <div className="p-3 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">💰 Cuenta Real</span>
+                  {connections.binance_real && (
+                    <Badge variant="outline" className="text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Conectada
+                    </Badge>
+                  )}
                 </div>
-              )}
+                {!connections.binance_real ? (
+                  <Button 
+                    onClick={() => handleConnect("Binance", "real")}
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Conectar Real
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    {connectionDetails.binance_real?.apiKeyPreview && (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {connectionDetails.binance_real.apiKeyPreview}
+                      </span>
+                    )}
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleDisconnect("Binance")}
+                    >
+                      Desconectar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </TabsContent>
             
             <TabsContent value="Bybit" className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Conecta tu cuenta de Bybit para trading automático
+                Conecta tu cuenta de Bybit para trading
               </p>
-              {!connections.bybit ? (
-                <Button 
-                  onClick={() => handleConnect("Bybit")}
-                  className="w-full"
-                >
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Conectar
-                </Button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">Conectado</span>
-                        {connectionDetails.bybit?.apiKeyPreview && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {connectionDetails.bybit.apiKeyPreview}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              
+              {/* Cuenta Demo */}
+              <div className="p-3 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">🎮 Cuenta Demo</span>
+                  {connections.bybit_demo && (
+                    <Badge variant="outline" className="text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Conectada
+                    </Badge>
+                  )}
+                </div>
+                {!connections.bybit_demo ? (
+                  <Button 
+                    onClick={() => handleConnect("Bybit", "demo")}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Conectar Demo
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    {connectionDetails.bybit_demo?.apiKeyPreview && (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {connectionDetails.bybit_demo.apiKeyPreview}
+                      </span>
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm"
@@ -373,8 +436,46 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                       Desconectar
                     </Button>
                   </div>
+                )}
+              </div>
+
+              {/* Cuenta Real */}
+              <div className="p-3 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">💰 Cuenta Real</span>
+                  {connections.bybit_real && (
+                    <Badge variant="outline" className="text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Conectada
+                    </Badge>
+                  )}
                 </div>
-              )}
+                {!connections.bybit_real ? (
+                  <Button 
+                    onClick={() => handleConnect("Bybit", "real")}
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Conectar Real
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    {connectionDetails.bybit_real?.apiKeyPreview && (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {connectionDetails.bybit_real.apiKeyPreview}
+                      </span>
+                    )}
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleDisconnect("Bybit")}
+                    >
+                      Desconectar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
