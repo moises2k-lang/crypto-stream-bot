@@ -151,22 +151,23 @@ Deno.serve(async (req) => {
     const allLogs: string[] = [];
 
     // Process each account type (demo and real)
-    for (const creds of allCreds) {
-      const accountType = creds.account_type || 'real';
+    for (let idx = 0; idx < allCreds.length; idx++) {
+      const cred = allCreds[idx];
+      const accountType = cred.account_type || 'real';
       allLogs.push(`\n--- Processing ${exchangeName} ${accountType.toUpperCase()} account ---`);
       
       // Decrypt credentials
       const apiKey = await decrypt(
-        creds.api_key_ciphertext,
-        creds.api_key_iv,
-        creds.salt,
+        cred.api_key_ciphertext,
+        cred.api_key_iv,
+        cred.salt,
         ENCRYPTION_KEY
       );
 
       const apiSecret = await decrypt(
-        creds.api_secret_ciphertext,
-        creds.api_secret_iv,
-        creds.salt,
+        cred.api_secret_ciphertext,
+        cred.api_secret_iv,
+        cred.salt,
         ENCRYPTION_KEY
       );
 
