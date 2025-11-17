@@ -85,7 +85,6 @@ Deno.serve(async (req) => {
 
     console.log('✅ User authenticated:', user.id);
 
-    // Get Cloudflare Worker configuration
     const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL');
     const proxyToken = Deno.env.get('CLOUDFLARE_PROXY_TOKEN');
     
@@ -138,7 +137,7 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .eq('exchange_name', exchangeName);
 
-    if (!creds) {
+    if (!allCreds || allCreds.length === 0) {
       return new Response(JSON.stringify({ 
         error: "Credentials not found",
         logs: [`No credentials found for ${exchangeName}`]
@@ -148,141 +147,129 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Decrypt credentials
-    const apiKey = await decrypt(
-      creds.api_key_ciphertext,
-      creds.api_key_iv,
-      creds.salt,
-      ENCRYPTION_KEY
-    );
+    let totalBalance = 0;
+    const allLogs: string[] = [];
 
-    const apiSecret = await decrypt(
-      creds.api_secret_ciphertext,
-      creds.api_secret_iv,
-      creds.salt,
-      ENCRYPTION_KEY
-    );
-
-    console.log('🔓 Credentials decrypted successfully');
-
-    // Detectar cuenta demo
-    if (apiKey.startsWith('DEMO_')) {
-      console.log('🎮 Demo account detected, returning stored balance');
+    // Process each account type (demo and real)
+    for (const creds of allCreds) {
+      const accountType = creds.account_type || 'real';
+      allLogs.push(`\n--- Processing ${exchangeName} ${accountType.toUpperCase()} account ---`);
       
-      const { data: userStats } = await supabaseClient
-        .from('user_stats')
-        .select('total_balance')
-        .eq('user_id', user.id)
-        .single();
-      
-      const demoBalance = userStats?.total_balance || 0;
-      
-      return new Response(JSON.stringify({
-        success: true,
-        balance: demoBalance,
-        logs: [
-          `🎮 Cuenta demo de ${exchangeName}`,
-          `💰 Saldo demo: $${demoBalance.toFixed(2)} USD`,
-          `ℹ️ Este es un saldo simulado`
-        ]
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+      // Decrypt credentials
+      const apiKey = await decrypt(
+        creds.api_key_ciphertext,
+        creds.api_key_iv,
+        creds.salt,
+        ENCRYPTION_KEY
+      );
 
-    console.log('🌐 Calling Cloudflare Worker proxy in Europe...');
+      const apiSecret = await decrypt(
+        creds.api_secret_ciphertext,
+        creds.api_secret_iv,
+        creds.salt,
+        ENCRYPTION_KEY
+      );
 
-    // Call Cloudflare Worker proxy instead of direct API calls
-    const proxyResponse = await fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${proxyToken}`
-      },
-      body: JSON.stringify({
-        exchange: exchangeName.toLowerCase(),
-        action: 'getBalance',
-        apiKey: apiKey,
-        apiSecret: apiSecret,
-        params: {
-          // Para Bybit, consultar TODAS las wallets
-          accountTypes: exchangeName.toLowerCase() === 'bybit' 
-            ? ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] 
-            : undefined
+      allLogs.push('🔓 Credentials decrypted successfully');
+
+      // Detectar cuenta demo
+      if (apiKey.startsWith('DEMO_')) {
+        allLogs.push('🎮 Demo account detected, using stored balance');
+        
+        const { data: userStats } = await supabaseClient
+          .from('user_stats')
+          .select('total_balance')
+          .eq('user_id', user.id)
+          .single();
+        
+        const demoBalance = userStats?.total_balance || 10000;
+        totalBalance += demoBalance;
+        
+        allLogs.push(`✓ Demo balance: $${demoBalance}`);
+        continue;
+      }
+
+      // Call Cloudflare Worker for real accounts
+      try {
+        const params: any = {
+          exchange: exchangeName.toLowerCase(),
+          apiKey,
+          apiSecret,
+        };
+
+        if (exchangeName === 'Bybit') {
+          params.accountTypes = ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'];
         }
-      })
-    });
 
-    if (!proxyResponse.ok) {
-      const errorText = await proxyResponse.text();
-      console.error('❌ Cloudflare Worker error:', proxyResponse.status, errorText);
+        allLogs.push(`☁️ Calling Cloudflare Worker for ${accountType} account`);
 
-      // Graceful handling for geo-restricted or unreachable responses (e.g. 451/403/502)
-      const isGeoOrBlocked =
-        proxyResponse.status === 451 ||
-        proxyResponse.status === 403 ||
-        proxyResponse.status === 502 ||
-        /restricted location|All Binance endpoints failed/i.test(errorText);
-
-      if (isGeoOrBlocked) {
-        const logs = [
-          `⚠️ ${exchangeName} bloqueado o no disponible desde la ubicación actual (código ${proxyResponse.status}).`,
-          'Motivo probable: geobloqueo. Binance puede bloquear ciertas IPs de Cloudflare.',
-          'Sugerencia: usar VPS europeo con IP fija o un proxy dedicado en la UE y enrutar el Worker hacia ese VPS.',
-        ];
-        return new Response(JSON.stringify({
-          success: false,
-          balance: 0,
-          error: 'Restricted or unreachable location',
-          logs,
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        const response = await fetch(workerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${proxyToken}`,
+          },
+          body: JSON.stringify(params),
         });
+
+        allLogs.push(`📡 Worker response status: ${response.status}`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          allLogs.push(`❌ Worker error: ${errorText}`);
+          throw new Error(`Cloudflare Worker error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.logs) {
+          allLogs.push(...result.logs);
+        }
+
+        const accountBalance = result.balance || 0;
+        totalBalance += accountBalance;
+        allLogs.push(`✓ ${accountType} balance: $${accountBalance}`);
+
+      } catch (error: any) {
+        allLogs.push(`❌ Error for ${accountType}: ${error.message}`);
+        console.error(`Error processing ${accountType} account:`, error.message);
       }
-
-      throw new Error(`Cloudflare Worker error: ${proxyResponse.status} - ${errorText}`);
     }
 
-    const proxyData = await proxyResponse.json();
-    console.log('✅ Cloudflare Worker response:', JSON.stringify(proxyData));
+    allLogs.push(`\n💰 Total balance from all ${exchangeName} accounts: $${totalBalance.toFixed(2)}`);
+    console.log('💰 Final total balance:', totalBalance);
 
-    if (proxyData.error) {
-      throw new Error(`Proxy error: ${proxyData.error}`);
+    // Update user_stats
+    const { error: updateError } = await supabaseClient
+      .from('user_stats')
+      .upsert({
+        user_id: user.id,
+        total_balance: totalBalance,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (updateError) {
+      console.error('❌ Error updating user_stats:', updateError);
+      allLogs.push(`⚠️ Warning: Could not update stats: ${updateError.message}`);
+    } else {
+      console.log('✅ User stats updated successfully');
+      allLogs.push('✓ Stats updated successfully');
     }
-
-    let balance = proxyData.balance || 0;
-    let logs: string[] = [];
-
-    if (exchangeName === 'Bybit') {
-      logs.push(`✅ Bybit balance: $${balance.toFixed(2)} USDT`);
-      logs.push(`🌍 Connected via Cloudflare Worker (Europe)`);
-    } else if (exchangeName === 'Binance') {
-      logs.push(`✅ Binance balance: $${balance.toFixed(2)} USDT`);
-      logs.push(`🌍 Connected via Cloudflare Worker (Europe)`);
-      if (proxyData.endpoint) {
-        logs.push(`📡 Binance endpoint: ${proxyData.endpoint}`);
-      }
-    }
-
-    console.log(`💰 Final balance: $${balance.toFixed(2)} USDT`);
 
     return new Response(JSON.stringify({ 
-      balance,
-      logs,
-      success: true
+      success: true,
+      balance: totalBalance,
+      logs: allLogs 
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
-    console.error("❌ Error in sync-exchange-balance-single:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+  } catch (error: any) {
+    console.error('❌ Unexpected error:', error);
     return new Response(JSON.stringify({ 
-      error: errorMessage,
-      logs: [`Error: ${errorMessage}`]
+      error: error.message,
+      logs: [`Unexpected error: ${error.message}`]
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
