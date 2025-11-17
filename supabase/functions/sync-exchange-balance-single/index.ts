@@ -111,16 +111,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get exchange connection
-    const { data: connection } = await supabaseClient
+    // Get all exchange connections (demo and real)
+    const { data: connections } = await supabaseClient
       .from('exchange_connections')
       .select('*')
       .eq('user_id', user.id)
       .eq('exchange_name', exchangeName)
-      .eq('is_connected', true)
-      .single();
+      .eq('is_connected', true);
 
-    if (!connection) {
+    if (!connections || connections.length === 0) {
       return new Response(JSON.stringify({ 
         error: `No connected ${exchangeName} exchange`,
         logs: [`No active connection found for ${exchangeName}`]
@@ -130,13 +129,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get encrypted credentials
-    const { data: creds } = await supabaseClient
+    console.log(`📋 Found ${connections.length} connection(s) for ${exchangeName}`);
+
+    // Get all encrypted credentials for this exchange
+    const { data: allCreds } = await supabaseClient
       .from('exchange_credentials')
       .select('*')
       .eq('user_id', user.id)
-      .eq('exchange_name', exchangeName)
-      .single();
+      .eq('exchange_name', exchangeName);
 
     if (!creds) {
       return new Response(JSON.stringify({ 
