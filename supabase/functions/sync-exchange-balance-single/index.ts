@@ -192,15 +192,13 @@ Deno.serve(async (req) => {
 
       // Call Cloudflare Worker for real accounts
       try {
-        const params: any = {
+        const payload = {
           exchange: exchangeName.toLowerCase(),
+          action: 'getBalance',
           apiKey,
           apiSecret,
+          params: exchangeName === 'Bybit' ? { accountTypes: ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] } : {},
         };
-
-        if (exchangeName === 'Bybit') {
-          params.accountTypes = ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'];
-        }
 
         allLogs.push(`☁️ Calling Cloudflare Worker for ${accountType} account`);
 
@@ -210,7 +208,7 @@ Deno.serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${proxyToken}`,
           },
-          body: JSON.stringify(params),
+          body: JSON.stringify(payload),
         });
 
         allLogs.push(`📡 Worker response status: ${response.status}`);
