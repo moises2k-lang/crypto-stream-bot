@@ -14,6 +14,94 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_logs: {
+        Row: {
+          bot_id: string
+          details: Json | null
+          id: string
+          log_level: string
+          message: string
+          timestamp: string
+        }
+        Insert: {
+          bot_id: string
+          details?: Json | null
+          id?: string
+          log_level?: string
+          message: string
+          timestamp?: string
+        }
+        Update: {
+          bot_id?: string
+          details?: Json | null
+          id?: string
+          log_level?: string
+          message?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_logs_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "trading_bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_slots: {
+        Row: {
+          bot_id: string
+          buy_order_id: string | null
+          entry_price: number
+          filled_qty: number
+          id: string
+          last_update_ts: string
+          qty: number
+          size_usdt: number
+          slot_id: number
+          status: string
+          tp_order_id: string | null
+          tp_price: number
+        }
+        Insert: {
+          bot_id: string
+          buy_order_id?: string | null
+          entry_price: number
+          filled_qty?: number
+          id?: string
+          last_update_ts?: string
+          qty?: number
+          size_usdt?: number
+          slot_id: number
+          status?: string
+          tp_order_id?: string | null
+          tp_price: number
+        }
+        Update: {
+          bot_id?: string
+          buy_order_id?: string | null
+          entry_price?: number
+          filled_qty?: number
+          id?: string
+          last_update_ts?: string
+          qty?: number
+          size_usdt?: number
+          slot_id?: number
+          status?: string
+          tp_order_id?: string | null
+          tp_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_slots_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "trading_bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_connections: {
         Row: {
           account_type: string
@@ -340,6 +428,90 @@ export type Database = {
           profit?: string
           status?: string
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trading_bots: {
+        Row: {
+          account_type: string
+          atr_period: number
+          atr_timeframe: string
+          base_capital_mode: string
+          created_at: string
+          exchange_name: string
+          id: string
+          is_active: boolean
+          is_testnet: boolean
+          last_run_at: string | null
+          level_atr_mults: number[] | null
+          level_pcts: number[] | null
+          levels_method: string
+          leverage: number | null
+          name: string
+          num_slots: number
+          recenter_threshold_pct: number
+          symbol: string
+          total_alloc_pct: number
+          tp_atr_mult: number | null
+          tp_fixed: number | null
+          tp_method: string
+          tp_pct: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string
+          atr_period?: number
+          atr_timeframe?: string
+          base_capital_mode?: string
+          created_at?: string
+          exchange_name?: string
+          id?: string
+          is_active?: boolean
+          is_testnet?: boolean
+          last_run_at?: string | null
+          level_atr_mults?: number[] | null
+          level_pcts?: number[] | null
+          levels_method?: string
+          leverage?: number | null
+          name: string
+          num_slots?: number
+          recenter_threshold_pct?: number
+          symbol?: string
+          total_alloc_pct?: number
+          tp_atr_mult?: number | null
+          tp_fixed?: number | null
+          tp_method?: string
+          tp_pct?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string
+          atr_period?: number
+          atr_timeframe?: string
+          base_capital_mode?: string
+          created_at?: string
+          exchange_name?: string
+          id?: string
+          is_active?: boolean
+          is_testnet?: boolean
+          last_run_at?: string | null
+          level_atr_mults?: number[] | null
+          level_pcts?: number[] | null
+          levels_method?: string
+          leverage?: number | null
+          name?: string
+          num_slots?: number
+          recenter_threshold_pct?: number
+          symbol?: string
+          total_alloc_pct?: number
+          tp_atr_mult?: number | null
+          tp_fixed?: number | null
+          tp_method?: string
+          tp_pct?: number | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
