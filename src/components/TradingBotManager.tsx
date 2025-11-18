@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Play, Pause, Trash2, Settings, Plus, Activity } from "lucide-react";
+import { Play, Pause, Trash2, Settings, Plus, Activity, Clock } from "lucide-react";
+import { BotScheduler } from "./BotScheduler";
 
 interface TradingBot {
   id: string;
@@ -373,9 +374,14 @@ export const TradingBotManager = () => {
                   onClick={() => setSelectedBot(bot.id)}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <div className="font-medium">{bot.name}</div>
                       <div className="text-sm text-muted-foreground">{bot.symbol}</div>
+                      <BotScheduler 
+                        botId={bot.id} 
+                        isActive={bot.is_active}
+                        intervalSeconds={60}
+                      />
                     </div>
                     <div className="flex items-center gap-2">
                       {bot.is_active ? (
@@ -436,11 +442,16 @@ const BotDetails = ({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <CardTitle>{bot.name}</CardTitle>
             <CardDescription>
               {bot.exchange_name} • {bot.symbol} • {bot.account_type}
             </CardDescription>
+            <BotScheduler 
+              botId={bot.id} 
+              isActive={bot.is_active}
+              intervalSeconds={60}
+            />
           </div>
           <div className="flex items-center gap-2">
             <Button
