@@ -6,6 +6,7 @@ import { TradesHistory } from "@/components/TradesHistory";
 import { MarketCharts } from "@/components/MarketCharts";
 import { NotificationsHistory } from "@/components/NotificationsHistory";
 import { ExchangeConnections } from "@/components/ExchangeConnections";
+import { TradingBotManager } from "@/components/TradingBotManager";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,6 +63,8 @@ const Index = () => {
         </Tabs>
         
         <TradesHistory />
+        
+        <TradingBotManager />
       </main>
     </div>
   );
