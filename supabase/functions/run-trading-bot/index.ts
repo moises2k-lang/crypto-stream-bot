@@ -285,13 +285,18 @@ Deno.serve(async (req) => {
       .single();
 
     if (botError || !bot) {
-      throw new Error('Bot not found');
+      console.error('Bot not found or inaccessible', botError);
+      return new Response(
+        JSON.stringify({ success: false, message: 'Bot not found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (!bot.is_active) {
+      await logMessage(supabase, botId, 'info', 'Bot is inactive, skipping run');
       return new Response(
         JSON.stringify({ success: false, message: 'Bot is not active' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
