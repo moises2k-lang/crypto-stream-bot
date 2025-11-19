@@ -18,6 +18,8 @@ export const BotScheduler = ({ botId, isActive, intervalSeconds = 60 }: BotSched
       return;
     }
 
+    let isMounted = true;
+
     const runBot = async () => {
       if (isRunning) return;
       
@@ -30,14 +32,24 @@ export const BotScheduler = ({ botId, isActive, intervalSeconds = 60 }: BotSched
 
         if (error) {
           console.error('[Scheduler] Error:', error);
-        } else {
-          console.log('[Scheduler] Success:', data);
+          return;
+        }
+        
+        if (data && !data.success) {
+          console.error('[Scheduler] Bot execution failed:', data.message);
+          return;
+        }
+        
+        console.log('[Scheduler] Success:', data);
+        if (isMounted) {
           setLastRun(new Date());
         }
       } catch (error) {
         console.error('[Scheduler] Exception:', error);
       } finally {
-        setIsRunning(false);
+        if (isMounted) {
+          setIsRunning(false);
+        }
       }
     };
 
@@ -47,14 +59,19 @@ export const BotScheduler = ({ botId, isActive, intervalSeconds = 60 }: BotSched
     // Then run at intervals
     const interval = setInterval(() => {
       runBot();
-      setNextRun(new Date(Date.now() + intervalSeconds * 1000));
+      if (isMounted) {
+        setNextRun(new Date(Date.now() + intervalSeconds * 1000));
+      }
     }, intervalSeconds * 1000);
 
     // Set next run time
     setNextRun(new Date(Date.now() + intervalSeconds * 1000));
 
-    return () => clearInterval(interval);
-  }, [botId, isActive, intervalSeconds, isRunning]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [botId, isActive, intervalSeconds]);
 
   if (!isActive) return null;
 
