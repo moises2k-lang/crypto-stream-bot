@@ -181,7 +181,17 @@ export const TradingBotManager = () => {
         body: { botId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error running bot (edge error):', error);
+        toast.error(error.message || 'Failed to run bot');
+        return;
+      }
+
+      if (!data?.success) {
+        console.error('Bot run failed:', data?.message);
+        toast.error((data as any)?.message || 'Bot is not active');
+        return;
+      }
 
       toast.success('Bot executed successfully');
       fetchBotData(botId);
