@@ -15,13 +15,14 @@ export const BotScheduler = ({ botId, isActive, intervalSeconds = 60 }: BotSched
   useEffect(() => {
     if (!isActive) {
       setNextRun(null);
+      setLastRun(null);
       return;
     }
 
     let isMounted = true;
 
     const runBot = async () => {
-      if (isRunning) return;
+      if (!isMounted || isRunning) return;
       
       setIsRunning(true);
       try {
