@@ -5,13 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Lista de proxies europeos rotativos (free tier)
-const EU_PROXIES = [
-  'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=DE&ssl=all&anonymity=all',
-  'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=FR&ssl=all&anonymity=all',
-  'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=NL&ssl=all&anonymity=all',
-];
-
 interface ExchangeRequest {
   exchange: string;
   action: string;
@@ -37,6 +30,60 @@ async function signHmacSha256(message: string, secret: string): Promise<string> 
   return Array.from(new Uint8Array(signature))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+// Configuración del proxy Webshare
+function getProxyConfig() {
+  const host = Deno.env.get('WEBSHARE_PROXY_HOST');
+  const port = Deno.env.get('WEBSHARE_PROXY_PORT');
+  const user = Deno.env.get('WEBSHARE_PROXY_USER');
+  const password = Deno.env.get('WEBSHARE_PROXY_PASSWORD');
+
+  if (!host || !port || !user || !password) {
+    console.warn('⚠️ Webshare proxy credentials not configured');
+    return null;
+  }
+
+  return {
+    host,
+    port,
+    user,
+    password,
+    url: `http://${user}:${password}@${host}:${port}`
+  };
+}
+
+async function fetchWithProxy(url: string, options: RequestInit = {}): Promise<Response> {
+  const proxyConfig = getProxyConfig();
+  
+  if (!proxyConfig) {
+    console.log('📡 Making direct request (no proxy configured)');
+    return fetch(url, options);
+  }
+
+  console.log(`🌐 Using Webshare proxy: ${proxyConfig.host}:${proxyConfig.port}`);
+  
+  // Crear headers con autenticación de proxy
+  const proxyAuth = btoa(`${proxyConfig.user}:${proxyConfig.password}`);
+  const headers = {
+    ...options.headers,
+    'Proxy-Authorization': `Basic ${proxyAuth}`,
+  };
+
+  // Intentar con proxy configurado
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+    
+    console.log(`✅ Proxy request successful: ${response.status}`);
+    return response;
+  } catch (error) {
+    console.warn(`⚠️ Proxy request failed, trying direct connection:`, error);
+    // Fallback a conexión directa si el proxy falla
+    return fetch(url, options);
+  }
 }
 
 async function fetchBybitBalance(apiKey: string, apiSecret: string, accountType: string = 'UNIFIED'): Promise<number> {
