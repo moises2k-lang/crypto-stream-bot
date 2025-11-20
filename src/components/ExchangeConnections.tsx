@@ -195,12 +195,14 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
         }
       }
 
+      const finalAccountType = isDemoAccount ? 'demo' : selectedAccountType;
+
       const { error } = await supabase.functions.invoke('save-exchange-keys', {
         body: {
           exchange: activeTab,
           apiKey: finalApiKey.trim(),
           apiSecret: finalApiSecret.trim(),
-          accountType: selectedAccountType,
+          accountType: finalAccountType,
         },
       });
 
@@ -554,6 +556,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                     variant={!isDemoAccount ? "default" : "outline"}
                     onClick={() => {
                       setIsDemoAccount(false);
+                      setSelectedAccountType('real');
                       setApiKey("");
                       setApiSecret("");
                     }}
@@ -567,6 +570,7 @@ export const ExchangeConnections = ({ isConnected, onConnectionChange }: Exchang
                     variant={isDemoAccount ? "default" : "outline"}
                     onClick={() => {
                       setIsDemoAccount(true);
+                      setSelectedAccountType('demo');
                       setApiKey("");
                       setApiSecret("");
                     }}
