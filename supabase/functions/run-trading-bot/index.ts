@@ -303,17 +303,20 @@ Deno.serve(async (req) => {
     await logMessage(supabase, botId, 'info', `Starting bot run for ${bot.name}`);
 
     // Get exchange credentials
-    const { data: creds } = await supabase
+    await logMessage(supabase, botId, 'info', `Looking for credentials: exchange=${bot.exchange_name}, account_type=${bot.account_type}`);
+    
+    const { data: creds, error: credsError } = await supabase
       .from('exchange_credentials')
       .select('*')
       .eq('user_id', user.id)
       .eq('exchange_name', bot.exchange_name)
       .eq('account_type', bot.account_type)
-      .single();
+      .maybeSingle();
 
     if (!creds) {
-      await logMessage(supabase, botId, 'error', 'No exchange credentials found');
-      throw new Error('No exchange credentials configured');
+      const errorMsg = `No exchange credentials configured for ${bot.exchange_name} (${bot.account_type}). Please connect your exchange in the settings.`;
+      await logMessage(supabase, botId, 'error', errorMsg, { credsError });
+      throw new Error(errorMsg);
     }
 
     const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL')!;
