@@ -252,15 +252,24 @@ Deno.serve(async (req) => {
       }
     );
 
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '').trim();
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const isInternalCall = token === anonKey;
+
     const {
       data: { user },
     } = await supabaseClient.auth.getUser();
 
-    if (!user) {
+    if (!user && !isInternalCall) {
       throw new Error('Unauthorized');
     }
 
-    console.log(`✅ User authenticated: ${user.id}`);
+    if (user) {
+      console.log(`✅ User authenticated: ${user.id}`);
+    } else {
+      console.log('✅ Internal call authenticated with anon key');
+    }
     
     const body: ExchangeRequest = await req.json();
     const { exchange, action, apiKey, apiSecret, params } = body;
@@ -312,7 +321,7 @@ Deno.serve(async (req) => {
         error: errorMessage
       }),
       {
-        status: errorMessage === 'Unauthorized' ? 401 : 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
