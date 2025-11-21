@@ -63,26 +63,30 @@ async function fetchWithProxy(url: string, options: RequestInit = {}): Promise<R
 
   console.log(`🌐 Using Webshare proxy: ${proxyConfig.host}:${proxyConfig.port}`);
   
-  // Crear headers con autenticación de proxy
-  const proxyAuth = btoa(`${proxyConfig.user}:${proxyConfig.password}`);
-  const headers = {
-    ...options.headers,
-    'Proxy-Authorization': `Basic ${proxyAuth}`,
-  };
+  // Crear cliente HTTP con proxy configurado
+  const httpClient = Deno.createHttpClient({
+    proxy: {
+      url: proxyConfig.url,
+      basicAuth: {
+        username: proxyConfig.user,
+        password: proxyConfig.password
+      }
+    }
+  });
 
-  // Intentar con proxy configurado
   try {
     const response = await fetch(url, {
       ...options,
-      headers,
+      client: httpClient,
     });
     
     console.log(`✅ Proxy request successful: ${response.status}`);
     return response;
   } catch (error) {
-    console.warn(`⚠️ Proxy request failed, trying direct connection:`, error);
-    // Fallback a conexión directa si el proxy falla
-    return fetch(url, options);
+    console.warn(`⚠️ Proxy request failed:`, error);
+    throw error;
+  } finally {
+    httpClient.close();
   }
 }
 
