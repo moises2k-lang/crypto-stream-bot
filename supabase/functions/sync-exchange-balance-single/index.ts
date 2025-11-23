@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Call EU proxy first, fallback to Cloudflare Worker
+      // Call CloudFlare Worker directly (no EU proxy as it doesn't support proxies in Deno Deploy)
       try {
         const payload = {
           exchange: exchangeName.toLowerCase(),
@@ -200,67 +200,37 @@ Deno.serve(async (req) => {
           params: exchangeName === 'Bybit' ? { accountTypes: ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] } : {},
         };
 
-        allLogs.push(`🌍 Trying EU proxy for ${accountType} account`);
+        allLogs.push(`☁️ Calling Cloudflare Worker for ${accountType} account`);
         
         let accountBalance = 0;
         let successMethod = '';
 
-        // Intentar primero con el proxy EU
-        try {
-          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-          const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-          
-          const euProxyResponse = await fetch(`${supabaseUrl}/functions/v1/proxy-exchange-eu`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${anonKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-          });
+        const response = await fetch(workerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${proxyToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-          const euData = await euProxyResponse.json();
+        allLogs.push(`📡 Worker response status: ${response.status}`);
 
-          if (euData.success) {
-            accountBalance = euData.balance || 0;
-            successMethod = 'EU Proxy';
-            allLogs.push(`✅ Balance via EU proxy: $${accountBalance}`);
-          } else {
-            throw new Error(euData.error || 'EU proxy failed');
-          }
-        } catch (euError: any) {
-          allLogs.push(`⚠️ EU proxy failed: ${euError.message}, trying CloudFlare Worker...`);
-          
-          // Fallback a CloudFlare Worker
-          allLogs.push(`☁️ Calling Cloudflare Worker for ${accountType} account`);
-
-          const response = await fetch(workerUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${proxyToken}`,
-            },
-            body: JSON.stringify(payload),
-          });
-
-          allLogs.push(`📡 Worker response status: ${response.status}`);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            allLogs.push(`❌ Worker error: ${errorText}`);
-            throw new Error(`Cloudflare Worker error: ${response.status} - ${errorText}`);
-          }
-
-          const result = await response.json();
-          
-          if (result.logs) {
-            allLogs.push(...result.logs);
-          }
-
-          accountBalance = result.balance || 0;
-          successMethod = 'CF Worker';
-          allLogs.push(`✅ Balance via CloudFlare: $${accountBalance}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          allLogs.push(`❌ Worker error: ${errorText}`);
+          throw new Error(`Cloudflare Worker error: ${response.status} - ${errorText}`);
         }
+
+        const result = await response.json();
+        
+        if (result.logs) {
+          allLogs.push(...result.logs);
+        }
+
+        accountBalance = result.balance || 0;
+        successMethod = 'CF Worker';
+        allLogs.push(`✅ Balance via CloudFlare: $${accountBalance}`);
 
         totalBalance += accountBalance;
         allLogs.push(`✓ ${accountType} balance: $${accountBalance} (${successMethod})`);
