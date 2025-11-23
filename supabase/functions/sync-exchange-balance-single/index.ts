@@ -207,16 +207,26 @@ Deno.serve(async (req) => {
 
         // Intentar primero con el proxy EU
         try {
-          const euProxyResponse = await supabaseClient.functions.invoke('proxy-exchange-eu', {
-            body: payload
+          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+          const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+          
+          const euProxyResponse = await fetch(`${supabaseUrl}/functions/v1/proxy-exchange-eu`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${anonKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
           });
 
-          if (euProxyResponse.data?.success) {
-            accountBalance = euProxyResponse.data.balance || 0;
+          const euData = await euProxyResponse.json();
+
+          if (euData.success) {
+            accountBalance = euData.balance || 0;
             successMethod = 'EU Proxy';
             allLogs.push(`✅ Balance via EU proxy: $${accountBalance}`);
           } else {
-            throw new Error(euProxyResponse.data?.error || euProxyResponse.error?.message || 'EU proxy failed');
+            throw new Error(euData.error || 'EU proxy failed');
           }
         } catch (euError: any) {
           allLogs.push(`⚠️ EU proxy failed: ${euError.message}, trying CloudFlare Worker...`);
