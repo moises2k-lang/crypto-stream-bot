@@ -85,21 +85,7 @@ Deno.serve(async (req) => {
 
     console.log('✅ User authenticated:', user.id);
 
-    const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL');
-    const proxyToken = Deno.env.get('CLOUDFLARE_PROXY_TOKEN');
-    
-    if (!workerUrl || !proxyToken) {
-      console.error('❌ Missing Cloudflare Worker configuration');
-      return new Response(
-        JSON.stringify({ error: 'Cloudflare Worker not configured. Please add CLOUDFLARE_WORKER_URL and CLOUDFLARE_PROXY_TOKEN secrets.' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-    
-    console.log('🌍 Using Cloudflare Worker:', workerUrl);
+    console.log('🌍 Using EU proxy (European hosting)');
 
     const ENCRYPTION_KEY = Deno.env.get("EXCHANGE_ENCRYPTION_KEY");
     if (!ENCRYPTION_KEY) {
@@ -190,7 +176,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Call CloudFlare Worker directly (no EU proxy as it doesn't support proxies in Deno Deploy)
+      // Call EU proxy edge function (hosted in Europe)
       try {
         const payload = {
           exchange: exchangeName.toLowerCase(),
@@ -200,40 +186,39 @@ Deno.serve(async (req) => {
           params: exchangeName === 'Bybit' ? { accountTypes: ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] } : {},
         };
 
-        allLogs.push(`☁️ Calling Cloudflare Worker for ${accountType} account`);
+        allLogs.push(`🌍 Calling EU proxy for ${accountType} account`);
         
-        let accountBalance = 0;
-        let successMethod = '';
-
-        const response = await fetch(workerUrl, {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+        
+        const response = await fetch(`${supabaseUrl}/functions/v1/proxy-exchange-eu`, {
           method: 'POST',
           headers: {
+            'Authorization': `Bearer ${anonKey}`,
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${proxyToken}`,
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload)
         });
 
-        allLogs.push(`📡 Worker response status: ${response.status}`);
+        allLogs.push(`📡 EU proxy response status: ${response.status}`);
 
         if (!response.ok) {
           const errorText = await response.text();
-          allLogs.push(`❌ Worker error: ${errorText}`);
-          throw new Error(`Cloudflare Worker error: ${response.status} - ${errorText}`);
+          allLogs.push(`❌ EU proxy error: ${errorText}`);
+          throw new Error(`EU proxy error: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
-        
-        if (result.logs) {
-          allLogs.push(...result.logs);
+
+        if (!result.success) {
+          throw new Error(result.error || 'EU proxy failed');
         }
 
-        accountBalance = result.balance || 0;
-        successMethod = 'CF Worker';
-        allLogs.push(`✅ Balance via CloudFlare: $${accountBalance}`);
+        const accountBalance = result.balance || 0;
+        allLogs.push(`✅ Balance via EU proxy: $${accountBalance}`);
 
         totalBalance += accountBalance;
-        allLogs.push(`✓ ${accountType} balance: $${accountBalance} (${successMethod})`);
+        allLogs.push(`✓ ${accountType} balance: $${accountBalance} (EU Proxy)`);
 
       } catch (error: any) {
         allLogs.push(`❌ Error for ${accountType}: ${error.message}`);
