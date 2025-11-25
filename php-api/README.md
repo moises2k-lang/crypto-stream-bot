@@ -61,10 +61,21 @@ RewriteEngine On
 RewriteCond %{REQUEST_METHOD} OPTIONS
 RewriteRule ^(.*)$ $1 [R=200,L]
 
-# API Routes
+# API Routes - Exchanges
 RewriteRule ^api/save-exchange-keys$ api/save-exchange-keys.php [L]
 RewriteRule ^api/sync-exchange-balance$ api/sync-exchange-balance.php [L]
 RewriteRule ^api/disconnect-exchange$ api/disconnect-exchange.php [L]
+
+# API Routes - Trading Bots
+RewriteRule ^api/trading-bots/create-bot$ api/trading-bots/create-bot.php [L]
+RewriteRule ^api/trading-bots/get-bots$ api/trading-bots/get-bots.php [L]
+RewriteRule ^api/trading-bots/update-bot$ api/trading-bots/update-bot.php [L]
+RewriteRule ^api/trading-bots/delete-bot$ api/trading-bots/delete-bot.php [L]
+RewriteRule ^api/trading-bots/toggle-bot$ api/trading-bots/toggle-bot.php [L]
+RewriteRule ^api/trading-bots/run-bot$ api/trading-bots/run-bot.php [L]
+RewriteRule ^api/trading-bots/run-all-active-bots$ api/trading-bots/run-all-active-bots.php [L]
+RewriteRule ^api/trading-bots/get-bot-slots$ api/trading-bots/get-bot-slots.php [L]
+RewriteRule ^api/trading-bots/get-bot-logs$ api/trading-bots/get-bot-logs.php [L]
 
 # Security headers
 Header set X-Content-Type-Options "nosniff"
@@ -88,7 +99,9 @@ chmod 644 php-api/utils/*.php
 https://tudominio.com/php-api
 ```
 
-### 1. Guardar Claves de Exchange
+### Exchange API
+
+#### 1. Guardar Claves de Exchange
 
 **POST** `/api/save-exchange-keys`
 
@@ -108,7 +121,7 @@ Body:
 }
 ```
 
-### 2. Sincronizar Balance
+#### 2. Sincronizar Balance
 
 **POST** `/api/sync-exchange-balance`
 
@@ -125,7 +138,7 @@ Body (opcional):
 }
 ```
 
-### 3. Desconectar Exchange
+#### 3. Desconectar Exchange
 
 **POST** `/api/disconnect-exchange`
 
@@ -141,6 +154,132 @@ Body:
   "exchange": "Binance",
   "accountType": "real"
 }
+```
+
+### Trading Bots API
+
+#### 1. Crear Bot
+
+**POST** `/api/trading-bots/create-bot`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "name": "Mi Bot DCA",
+  "exchange_name": "Bybit",
+  "account_type": "demo",
+  "symbol": "BTC/USDT:USDT",
+  "num_slots": 6,
+  "total_alloc_pct": 0.6,
+  "levels_method": "atr",
+  "tp_method": "atr_above_entry"
+}
+```
+
+#### 2. Obtener Bots del Usuario
+
+**GET** `/api/trading-bots/get-bots`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+```
+
+#### 3. Actualizar Bot
+
+**PUT** `/api/trading-bots/update-bot`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "bot_id": "uuid-del-bot",
+  "name": "Nuevo nombre",
+  "num_slots": 8,
+  "is_active": true
+}
+```
+
+#### 4. Eliminar Bot
+
+**DELETE** `/api/trading-bots/delete-bot?bot_id={bot_id}`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+```
+
+#### 5. Activar/Desactivar Bot
+
+**POST** `/api/trading-bots/toggle-bot`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "bot_id": "uuid-del-bot",
+  "is_active": true
+}
+```
+
+#### 6. Ejecutar Bot Individual
+
+**POST** `/api/trading-bots/run-bot`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "bot_id": "uuid-del-bot"
+}
+```
+
+#### 7. Ejecutar Todos los Bots Activos
+
+**POST** `/api/trading-bots/run-all-active-bots`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+```
+
+#### 8. Obtener Slots de un Bot
+
+**GET** `/api/trading-bots/get-bot-slots?bot_id={bot_id}`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
+```
+
+#### 9. Obtener Logs de un Bot
+
+**GET** `/api/trading-bots/get-bot-logs?bot_id={bot_id}&limit=100`
+
+Headers:
+```
+Authorization: Bearer {JWT_TOKEN}
 ```
 
 ## 🔐 Seguridad
@@ -207,13 +346,26 @@ curl_setopt($ch, CURLOPT_PROXYUSERPWD, "usuario:contraseña");
 
 ## 📚 Próximos Pasos
 
-Este paquete incluye solo las funciones **core de exchanges**. Necesitarás implementar:
+Este paquete incluye las funciones **core de exchanges** y **trading bots**. Necesitarás implementar:
 
 - Sistema de autenticación completo (login, register)
-- Trading bots
+- Integración completa de APIs de Bybit/Binance (precio actual, ATR, colocar órdenes)
 - Notificaciones Telegram
 - Panel de administración
 - Gestión de suscripciones
+
+### Notas sobre Trading Bots
+
+Las funciones `run-bot.php` y `run-all-active-bots.php` contienen placeholders para las llamadas a las APIs de Bybit. Necesitas implementar:
+
+1. **getCurrentPrice()**: Obtener precio actual del mercado
+2. **fetchATR()**: Calcular Average True Range
+3. **getUserBalance()**: Obtener balance de la cuenta
+4. **placeBuyOrder()**: Colocar orden de compra limit
+5. **placeTPOrder()**: Colocar orden de take-profit
+6. **cancelOrder()**: Cancelar una orden existente
+
+Todas estas funciones deben usar el **proxy de Webshare** para evitar geo-blocking.
 
 ## 🆘 Soporte
 
