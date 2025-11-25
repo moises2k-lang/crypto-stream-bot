@@ -85,21 +85,7 @@ Deno.serve(async (req) => {
 
     console.log('✅ User authenticated:', user.id);
 
-    const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL');
-    const proxyToken = Deno.env.get('CLOUDFLARE_PROXY_TOKEN');
-    
-    if (!workerUrl || !proxyToken) {
-      console.error('❌ Missing Cloudflare Worker configuration');
-      return new Response(
-        JSON.stringify({ error: 'Cloudflare Worker not configured. Please add CLOUDFLARE_WORKER_URL and CLOUDFLARE_PROXY_TOKEN secrets.' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-    
-    console.log('🌍 Using Cloudflare Worker:', workerUrl);
+    console.log('🌍 Direct connection to exchange APIs');
 
     const ENCRYPTION_KEY = Deno.env.get("EXCHANGE_ENCRYPTION_KEY");
     if (!ENCRYPTION_KEY) {
@@ -190,80 +176,31 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Call EU proxy first, fallback to Cloudflare Worker
+      // Direct API call to exchange
       try {
-        const payload = {
-          exchange: exchangeName.toLowerCase(),
-          action: 'getBalance',
-          apiKey,
-          apiSecret,
-          params: exchangeName === 'Bybit' ? { accountTypes: ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] } : {},
-        };
-
-        allLogs.push(`🌍 Trying EU proxy for ${accountType} account`);
+        allLogs.push(`🔗 Connecting directly to ${exchangeName} for ${accountType} account`);
+        
+        // Import ccxt library
+        const { default: ccxt } = await import('https://esm.sh/ccxt@4.2.25');
         
         let accountBalance = 0;
-        let successMethod = '';
+        
+        // Initialize exchange
+        const exchangeClass = exchangeName === 'Binance' ? ccxt.binance : ccxt.bybit;
+        const exchange = new exchangeClass({
+          apiKey,
+          secret: apiSecret,
+          enableRateLimit: true,
+        });
 
-        // Intentar primero con el proxy EU
-        try {
-          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-          const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-          
-          const euProxyResponse = await fetch(`${supabaseUrl}/functions/v1/proxy-exchange-eu`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${anonKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const euData = await euProxyResponse.json();
-
-          if (euData.success) {
-            accountBalance = euData.balance || 0;
-            successMethod = 'EU Proxy';
-            allLogs.push(`✅ Balance via EU proxy: $${accountBalance}`);
-          } else {
-            throw new Error(euData.error || 'EU proxy failed');
-          }
-        } catch (euError: any) {
-          allLogs.push(`⚠️ EU proxy failed: ${euError.message}, trying CloudFlare Worker...`);
-          
-          // Fallback a CloudFlare Worker
-          allLogs.push(`☁️ Calling Cloudflare Worker for ${accountType} account`);
-
-          const response = await fetch(workerUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${proxyToken}`,
-            },
-            body: JSON.stringify(payload),
-          });
-
-          allLogs.push(`📡 Worker response status: ${response.status}`);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            allLogs.push(`❌ Worker error: ${errorText}`);
-            throw new Error(`Cloudflare Worker error: ${response.status} - ${errorText}`);
-          }
-
-          const result = await response.json();
-          
-          if (result.logs) {
-            allLogs.push(...result.logs);
-          }
-
-          accountBalance = result.balance || 0;
-          successMethod = 'CF Worker';
-          allLogs.push(`✅ Balance via CloudFlare: $${accountBalance}`);
-        }
+        // Fetch balance
+        const balance = await exchange.fetchBalance();
+        accountBalance = (balance.total as any)['USDT'] || 0;
+        
+        allLogs.push(`✅ Balance fetched: $${accountBalance}`);
 
         totalBalance += accountBalance;
-        allLogs.push(`✓ ${accountType} balance: $${accountBalance} (${successMethod})`);
+        allLogs.push(`✓ ${accountType} balance: $${accountBalance}`);
 
       } catch (error: any) {
         allLogs.push(`❌ Error for ${accountType}: ${error.message}`);
