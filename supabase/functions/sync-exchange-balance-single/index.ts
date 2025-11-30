@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
 
       // Call proxy server to fetch balance
       try {
-        const proxyUrl = Deno.env.get('EXCHANGE_PROXY_URL') || 'https://sistema.mbconstruccion.com/api/exchange/balance';
+        const proxyUrl = Deno.env.get('EXCHANGE_PROXY_URL') || 'https://sistema.mbconstruccion.com:5443/api/exchange/balance';
         const proxyApiKey = Deno.env.get('EXCHANGE_PROXY_KEY') || '';
         
         if (!proxyApiKey) {
