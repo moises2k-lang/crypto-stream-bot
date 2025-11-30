@@ -66,8 +66,25 @@ Crear archivo `/etc/nginx/sites-available/exchange-proxy`:
 
 ```nginx
 server {
-    listen 80;
+    listen 5880;
     server_name sistema.mbconstruccion.com;
+    
+    location /api/exchange/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 5443 ssl;
+    server_name sistema.mbconstruccion.com;
+    
+    # Configurar SSL manualmente con tus certificados
+    ssl_certificate /path/to/your/certificate.crt;
+    ssl_certificate_key /path/to/your/private.key;
     
     location /api/exchange/ {
         proxy_pass http://127.0.0.1:8080/;
@@ -87,16 +104,25 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## Añadir SSL con Let's Encrypt
+## Configurar SSL
+
+Como usas puertos personalizados, debes configurar SSL manualmente:
+
+1. Coloca tus certificados SSL en el servidor
+2. Actualiza las rutas en la configuración de Nginx arriba
+3. Si usas Let's Encrypt, genera los certificados manualmente:
 
 ```bash
-sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d sistema.mbconstruccion.com
+sudo apt install certbot -y
+sudo certbot certonly --standalone -d sistema.mbconstruccion.com
+# Luego actualiza las rutas en nginx a:
+# ssl_certificate /etc/letsencrypt/live/sistema.mbconstruccion.com/fullchain.pem;
+# ssl_certificate_key /etc/letsencrypt/live/sistema.mbconstruccion.com/privkey.pem;
 ```
 
 ## Uso desde Edge Functions
 
-URL del proxy: `https://sistema.mbconstruccion.com/api/exchange/balance`
+URL del proxy: `https://sistema.mbconstruccion.com:5443/api/exchange/balance`
 
 Headers:
 ```
@@ -117,9 +143,9 @@ Body:
 ## Firewall
 
 ```bash
-# Abrir puerto 80 y 443 para HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
+# Abrir puertos personalizados
+sudo ufw allow 5880/tcp
+sudo ufw allow 5443/tcp
 sudo ufw allow 22/tcp  # SSH
 sudo ufw enable
 ```
