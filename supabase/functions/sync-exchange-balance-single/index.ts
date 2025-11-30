@@ -176,31 +176,45 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Direct API call to exchange
+      // Call proxy server to fetch balance
       try {
-        allLogs.push(`🔗 Connecting directly to ${exchangeName} for ${accountType} account`);
+        const proxyUrl = Deno.env.get('EXCHANGE_PROXY_URL') || 'https://sistema.mbconstruccion.com/api/exchange/balance';
+        const proxyApiKey = Deno.env.get('EXCHANGE_PROXY_KEY') || '';
         
-        // Import ccxt library
-        const { default: ccxt } = await import('https://esm.sh/ccxt@4.2.25');
+        if (!proxyApiKey) {
+          throw new Error('EXCHANGE_PROXY_KEY not configured');
+        }
+
+        allLogs.push(`🔄 Fetching ${accountType} balance via proxy server...`);
         
-        let accountBalance = 0;
-        
-        // Initialize exchange
-        const exchangeClass = exchangeName === 'Binance' ? ccxt.binance : ccxt.bybit;
-        const exchange = new exchangeClass({
-          apiKey,
-          secret: apiSecret,
-          enableRateLimit: true,
+        const proxyResponse = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${proxyApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            exchange: exchangeName.toLowerCase(),
+            apiKey: apiKey,
+            apiSecret: apiSecret,
+            accountType: accountType
+          }),
         });
 
-        // Fetch balance
-        const balance = await exchange.fetchBalance();
-        accountBalance = (balance.total as any)['USDT'] || 0;
-        
-        allLogs.push(`✅ Balance fetched: $${accountBalance}`);
+        if (!proxyResponse.ok) {
+          const errorText = await proxyResponse.text();
+          throw new Error(`Proxy error: ${proxyResponse.status} - ${errorText}`);
+        }
 
-        totalBalance += accountBalance;
-        allLogs.push(`✓ ${accountType} balance: $${accountBalance}`);
+        const proxyData = await proxyResponse.json();
+        
+        if (proxyData.success) {
+          const accountBalance = proxyData.balance || 0;
+          totalBalance += accountBalance;
+          allLogs.push(`✅ ${accountType} balance from proxy: $${accountBalance}`);
+        } else {
+          throw new Error(proxyData.error || 'Unknown proxy error');
+        }
 
       } catch (error: any) {
         allLogs.push(`❌ Error for ${accountType}: ${error.message}`);
