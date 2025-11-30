@@ -74,14 +74,14 @@ Deno.serve(async (req) => {
 
     console.log('✅ User authenticated:', user.id);
 
-    // Get Cloudflare Worker configuration
-    const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL');
-    const proxyToken = Deno.env.get('CLOUDFLARE_PROXY_TOKEN');
+    // Get Python proxy server configuration
+    const proxyUrl = Deno.env.get('EXCHANGE_PROXY_URL') || 'https://sistema.mbconstruccion.com:5443/api/exchange/balance';
+    const proxyApiKey = Deno.env.get('EXCHANGE_PROXY_KEY') || '';
     
-    if (!workerUrl || !proxyToken) {
-      console.error('❌ Missing Cloudflare Worker configuration');
+    if (!proxyApiKey) {
+      console.error('❌ Missing EXCHANGE_PROXY_KEY');
       return new Response(
-        JSON.stringify({ error: 'Cloudflare Worker not configured. Please add CLOUDFLARE_WORKER_URL and CLOUDFLARE_PROXY_TOKEN secrets.' }),
+        JSON.stringify({ error: 'Proxy not configured. Please add EXCHANGE_PROXY_KEY secret.' }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       );
     }
     
-    console.log('🌍 Using Cloudflare Worker:', workerUrl);
+    console.log('🌍 Using Python proxy:', proxyUrl);
 
     const ENCRYPTION_KEY = Deno.env.get("EXCHANGE_ENCRYPTION_KEY");
     if (!ENCRYPTION_KEY) {
@@ -120,9 +120,9 @@ Deno.serve(async (req) => {
     let totalBalance = 0;
     let hadSuccess = false;
 
-    // Helper function to sync via Cloudflare Worker
+    // Helper function to sync via Python proxy
     const syncExchangeViaProxy = async (exchangeName: string, creds: any) => {
-      console.log(`🌐 Syncing ${exchangeName} via Cloudflare Worker...`);
+      console.log(`🌐 Syncing ${exchangeName} via Python proxy...`);
       
       const apiKey = await decrypt(
         creds.api_key_ciphertext,
@@ -150,43 +150,24 @@ Deno.serve(async (req) => {
         return userStats?.total_balance || 0;
       }
 
-      const proxyResponse = await fetch(workerUrl, {
+      const proxyResponse = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${proxyToken}`
+          'Authorization': `Bearer ${proxyApiKey}`
         },
         body: JSON.stringify({
           exchange: exchangeName.toLowerCase(),
-          action: 'getBalance',
           apiKey: apiKey,
           apiSecret: apiSecret,
-          params: {
-            // Para Bybit, consultar TODAS las wallets
-            accountTypes: exchangeName.toLowerCase() === 'bybit' 
-              ? ['UNIFIED', 'SPOT', 'CONTRACT', 'FUNDING'] 
-              : undefined
-          }
+          accountType: creds.account_type || 'spot'
         })
       });
 
       if (!proxyResponse.ok) {
         const errorText = await proxyResponse.text();
-        console.error(`❌ ${exchangeName} Cloudflare Worker error:`, proxyResponse.status, errorText);
-
-        // Graceful handling for geo-restricted or unreachable responses (e.g. 451/403/502)
-        const isGeoOrBlocked =
-          proxyResponse.status === 451 ||
-          proxyResponse.status === 403 ||
-          proxyResponse.status === 502 ||
-          /restricted location|All Binance endpoints failed/i.test(errorText);
-
-        if (isGeoOrBlocked) {
-          console.warn(`⚠️ ${exchangeName} bloqueado/no disponible. Se continúa sin sumar balance.`);
-          return 0; // Skip this exchange but do not fail the whole sync
-        }
-
-        throw new Error(`Cloudflare Worker error for ${exchangeName}: ${proxyResponse.status}`);
+        console.error(`❌ ${exchangeName} Python proxy error:`, proxyResponse.status, errorText);
+        throw new Error(`Python proxy error for ${exchangeName}: ${proxyResponse.status}`);
       }
 
       const proxyData = await proxyResponse.json();

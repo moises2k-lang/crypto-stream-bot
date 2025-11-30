@@ -32,64 +32,6 @@ async function signHmacSha256(message: string, secret: string): Promise<string> 
     .join('');
 }
 
-// Configuración del proxy Webshare
-function getProxyConfig() {
-  const host = Deno.env.get('WEBSHARE_PROXY_HOST');
-  const port = Deno.env.get('WEBSHARE_PROXY_PORT');
-  const user = Deno.env.get('WEBSHARE_PROXY_USER');
-  const password = Deno.env.get('WEBSHARE_PROXY_PASSWORD');
-
-  if (!host || !port || !user || !password) {
-    console.warn('⚠️ Webshare proxy credentials not configured');
-    return null;
-  }
-
-  return {
-    host,
-    port,
-    user,
-    password,
-    url: `http://${user}:${password}@${host}:${port}`
-  };
-}
-
-async function fetchWithProxy(url: string, options: RequestInit = {}): Promise<Response> {
-  const proxyConfig = getProxyConfig();
-  
-  if (!proxyConfig) {
-    console.log('📡 Making direct request (no proxy configured)');
-    return fetch(url, options);
-  }
-
-  console.log(`🌐 Using Webshare proxy: ${proxyConfig.host}:${proxyConfig.port}`);
-  
-  // Crear cliente HTTP con proxy configurado
-  const httpClient = Deno.createHttpClient({
-    proxy: {
-      url: proxyConfig.url,
-      basicAuth: {
-        username: proxyConfig.user,
-        password: proxyConfig.password
-      }
-    }
-  });
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      client: httpClient,
-    });
-    
-    console.log(`✅ Proxy request successful: ${response.status}`);
-    return response;
-  } catch (error) {
-    console.warn(`⚠️ Proxy request failed:`, error);
-    throw error;
-  } finally {
-    httpClient.close();
-  }
-}
-
 async function fetchBybitBalance(apiKey: string, apiSecret: string, accountType: string = 'UNIFIED'): Promise<number> {
   const timestamp = Date.now().toString();
   const params = new URLSearchParams({ accountType });
@@ -99,9 +41,8 @@ async function fetchBybitBalance(apiKey: string, apiSecret: string, accountType:
   
   const url = `https://api.bybit.com/v5/account/wallet-balance?${queryString}`;
   
-  console.log(`🔍 Fetching Bybit ${accountType} balance from EU proxy...`);
+  console.log(`🔍 Fetching Bybit ${accountType} balance directly...`);
   
-  // Headers para simular navegador europeo
   const headers = {
     'X-BAPI-API-KEY': apiKey,
     'X-BAPI-SIGN': signature,
@@ -109,75 +50,22 @@ async function fetchBybitBalance(apiKey: string, apiSecret: string, accountType:
     'X-BAPI-RECV-WINDOW': '5000',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',
-    'Accept-Language': 'en-GB,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Origin': 'https://www.bybit.com',
-    'Referer': 'https://www.bybit.com/',
   };
   
-  // Intentar con diferentes estrategias
-  let lastError: Error | null = null;
+  const response = await fetch(url, { headers });
   
-  // Estrategia 1: Directo con headers europeos
-  try {
-    const response = await fetch(url, { headers });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.retCode === 0) {
-        const balance = extractBybitBalance(data);
-        console.log(`✅ Bybit ${accountType} balance fetched successfully: ${balance}`);
-        return balance;
-      }
-      throw new Error(`Bybit API error: ${data.retMsg}`);
-    }
-    
-    if (response.status !== 403) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-    }
-    
-    console.warn(`⚠️ Direct request blocked (403), trying alternative method...`);
-  } catch (error) {
-    lastError = error as Error;
-    console.warn(`⚠️ Direct request failed:`, error);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
   
-  // Estrategia 2: Usar CloudFlare Workers como proxy (si está configurado)
-  const cfWorkerUrl = Deno.env.get('CLOUDFLARE_WORKER_URL');
-  const cfWorkerToken = Deno.env.get('CLOUDFLARE_PROXY_TOKEN');
-  
-  if (cfWorkerUrl && cfWorkerToken) {
-    try {
-      console.log(`🔄 Trying CloudFlare Worker proxy...`);
-      const response = await fetch(cfWorkerUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${cfWorkerToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          exchange: 'bybit',
-          action: 'getBalance',
-          apiKey,
-          apiSecret,
-          params: { accountTypes: [accountType] }
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          console.log(`✅ Balance fetched via CloudFlare Worker: ${data.balance}`);
-          return data.balance;
-        }
-      }
-    } catch (error) {
-      console.warn(`⚠️ CloudFlare Worker failed:`, error);
-    }
+  const data = await response.json();
+  if (data.retCode !== 0) {
+    throw new Error(`Bybit API error: ${data.retMsg}`);
   }
   
-  // Si todo falla, lanzar el último error
-  throw lastError || new Error('All proxy methods failed');
+  const balance = extractBybitBalance(data);
+  console.log(`✅ Bybit ${accountType} balance: ${balance}`);
+  return balance;
 }
 
 function extractBybitBalance(data: any): number {
