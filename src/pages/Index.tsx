@@ -1,16 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { StatsGrid } from "@/components/StatsGrid";
 import { SignalsPanel } from "@/components/SignalsPanel";
 import { TradesHistory } from "@/components/TradesHistory";
-import { MarketCharts } from "@/components/MarketCharts";
 import { NotificationsHistory } from "@/components/NotificationsHistory";
 import { ExchangeConnections } from "@/components/ExchangeConnections";
-import { TradingBotManager } from "@/components/TradingBotManager";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy load heavy components to reduce initial bundle
+const MarketCharts = lazy(() => import("@/components/MarketCharts").then(module => ({ default: module.MarketCharts })));
+const TradingBotManager = lazy(() => import("@/components/TradingBotManager").then(module => ({ default: module.TradingBotManager })));
 
 const Index = () => {
   const { t } = useTranslation();
@@ -47,7 +50,9 @@ const Index = () => {
           onConnectionChange={setIsExchangeConnected}
         />
         
-        <MarketCharts />
+        <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+          <MarketCharts />
+        </Suspense>
         
         <Tabs defaultValue="signals" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -64,7 +69,9 @@ const Index = () => {
         
         <TradesHistory />
         
-        <TradingBotManager />
+        <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
+          <TradingBotManager />
+        </Suspense>
       </main>
     </div>
   );

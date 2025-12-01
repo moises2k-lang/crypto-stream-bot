@@ -4,9 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
-import Index from "./pages/Index";
-
-// Lazy load pages to reduce initial bundle size
+// Lazy load all pages to reduce initial bundle size
+const Index = lazy(() => import("./pages/Index"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Security = lazy(() => import("./pages/Security"));
 const Subscriptions = lazy(() => import("./pages/Subscriptions"));
