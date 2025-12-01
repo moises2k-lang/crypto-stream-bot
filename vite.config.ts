@@ -19,9 +19,34 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast'],
+        manualChunks: (id) => {
+          // Core React libraries
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor';
+            }
+            // Radix UI components split by type
+            if (id.includes('@radix-ui')) {
+              if (id.includes('dialog') || id.includes('dropdown') || id.includes('toast')) {
+                return 'ui-core';
+              }
+              return 'ui-extended';
+            }
+            // Charts library separate chunk
+            if (id.includes('recharts')) {
+              return 'charts';
+            }
+            // i18n separate chunk
+            if (id.includes('i18next') || id.includes('react-i18next')) {
+              return 'i18n';
+            }
+            // Supabase separate chunk
+            if (id.includes('@supabase')) {
+              return 'supabase';
+            }
+            // Other node_modules
+            return 'vendor';
+          }
         },
       },
     },
